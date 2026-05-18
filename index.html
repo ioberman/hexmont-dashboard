@@ -86,7 +86,19 @@ input[type=range]{accent-color:var(--accent);width:100px;}
 .badge-before{background:#597caa22;color:#7aaad4;border:1px solid #597caa55;}
 .badge-after{background:#91bab622;color:#91bab6;border:1px solid #91bab655;}
 
-/* Modal */
+/* Demand tab */
+.dm-prod-btn{background:var(--card);color:var(--muted);border:1px solid var(--border);padding:3px 10px;border-radius:4px;font-size:11px;cursor:pointer;}
+.dm-prod-btn.active{background:var(--accent);color:#111;border-color:var(--accent);font-weight:600;}
+.dm-r2-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:2px 7px;border-radius:3px;border:1px solid var(--border);background:var(--card);color:var(--muted);}
+.dm-r2-badge strong{color:var(--accent);}
+.dm-radar-btn{background:var(--card);color:var(--muted);border:1px solid var(--border);padding:2px 8px;border-radius:3px;font-size:10px;cursor:pointer;}
+.dm-radar-btn.active{border-color:var(--accent);color:var(--text);}
+.hm-row{display:flex;align-items:center;gap:8px;padding:2px 0;}
+.hm-label{font-size:10px;color:var(--muted);width:110px;text-align:right;flex-shrink:0;}
+.hm-bar-wrap{flex:1;height:22px;border-radius:3px;overflow:hidden;position:relative;background:var(--card);}
+.hm-bar{height:100%;border-radius:3px;display:flex;align-items:center;padding-left:6px;}
+.hm-val{font-size:10px;font-weight:600;color:#fff;text-shadow:0 0 4px rgba(0,0,0,.6);}
+
 #modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;}
 #modal-overlay.show{display:flex;}
 #modal{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px;width:390px;}
@@ -130,6 +142,7 @@ input[type=range]{accent-color:var(--accent);width:100px;}
     <button class="tab" data-tab="performance">Market Performance</button>
     <button class="tab" data-tab="factory">Factory Relocation ROI</button>
     <button class="tab" data-tab="ops">Inventory &amp; Operations</button>
+    <button class="tab" data-tab="demand">Demand Modeling</button>
   </div>
 
   <div id="filters">
@@ -241,6 +254,57 @@ input[type=range]{accent-color:var(--accent);width:100px;}
           <div class="chart-wrap"><canvas id="perbal-chart" role="img" aria-label="Period inventory balance"></canvas></div>
         </div>
       </div>
+    </div>
+
+    <!-- DEMAND MODELING -->
+    <div id="tab-demand" class="tab-pane" style="overflow-y:auto;">
+
+      <!-- Row 1: Product selector + R² badges -->
+      <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;margin-bottom:2px;">
+        <span style="font-size:11px;color:var(--muted);font-weight:500;">Product:</span>
+        <button class="dm-prod-btn active" data-prod="1" onclick="setDemandProduct(1)">Product 1</button>
+        <button class="dm-prod-btn" data-prod="2" onclick="setDemandProduct(2)">Product 2</button>
+        <div id="dm-r2-badges" style="display:flex;gap:6px;margin-left:8px;flex-wrap:wrap;"></div>
+      </div>
+
+      <!-- Row 2: Driver Importance + Price Sensitivity heatmap -->
+      <div class="chart-row" style="min-height:260px;flex:none;">
+        <div class="chart-card" style="flex:2;">
+          <div class="chart-title">Driver Importance by Market</div>
+          <div class="chart-subtitle">Phase 1 coefficients — how much each lever moves market share</div>
+          <div class="chart-wrap" style="min-height:230px;"><canvas id="dm-driver-chart"></canvas></div>
+        </div>
+        <div class="chart-card" style="flex:1;min-width:220px;">
+          <div class="chart-title">Price Sensitivity Heatmap</div>
+          <div class="chart-subtitle">Both products — darker = more price sensitive</div>
+          <div id="dm-heatmap" style="flex:1;display:flex;flex-direction:column;justify-content:space-around;padding:4px 0;min-height:220px;"></div>
+        </div>
+      </div>
+
+      <!-- Row 3: Radar + Lag Effects -->
+      <div class="chart-row" style="min-height:260px;flex:none;">
+        <div class="chart-card" style="flex:1;">
+          <div class="chart-title">Market Demand Profile</div>
+          <div class="chart-subtitle">Relative driver weights per market &mdash; select market below</div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;flex-shrink:0;" id="dm-radar-btns"></div>
+          <div class="chart-wrap" style="min-height:200px;"><canvas id="dm-radar-chart"></canvas></div>
+        </div>
+        <div class="chart-card" style="flex:1.4;">
+          <div class="chart-title">Immediate vs Lagged Marketing Effect</div>
+          <div class="chart-subtitle">Current period spend vs prior period carry-over (refined regression)</div>
+          <div class="chart-wrap" style="min-height:220px;"><canvas id="dm-lag-chart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Row 4: Phase 2 interaction effects (Germany, Japan, UK only) -->
+      <div class="chart-row" style="min-height:240px;flex:none;">
+        <div class="chart-card">
+          <div class="chart-title">Phase 2 Interaction Effects — Germany, Japan, United Kingdom</div>
+          <div class="chart-subtitle">Price×Green and Price×Quality interactions — negative = premium positioning dampens price sensitivity</div>
+          <div class="chart-wrap" style="min-height:200px;"><canvas id="dm-interact-chart"></canvas></div>
+        </div>
+      </div>
+
     </div>
 
   </div>
@@ -739,7 +803,211 @@ function renderOps(){
   });
 }
 
-// ── TABS ──────────────────────────────────────────────────
+// ── DEMAND MODELING DATA ─────────────────────────────────
+const DM_P1 = [{"product":"Product 2","market":"Mexico","r2":0.999998,"intercept":15.61125,"b_price":-32.7825,"b_quality":28.4225,"b_marketing":10.4325,"b_green":28.3625,"predicted_optimum":100.04625},{"product":"Product 2","market":"Japan","r2":0.999997,"intercept":1.9075,"b_price":-25.94,"b_quality":32.27,"b_marketing":5.325,"b_green":36.465,"predicted_optimum":100.0275},{"product":"Product 1","market":"Germany","r2":0.999988,"intercept":29.24875,"b_price":-39.6125,"b_quality":21.4775,"b_marketing":11.4725,"b_green":27.4375,"predicted_optimum":100.02375},{"product":"Product 1","market":"United States","r2":0.999992,"intercept":32.76,"b_price":-41.37,"b_quality":18.88,"b_marketing":14.785,"b_green":24.965,"predicted_optimum":100.02},{"product":"Product 2","market":"China","r2":0.999988,"intercept":14.41875,"b_price":-32.2125,"b_quality":28.0175,"b_marketing":11.7575,"b_green":28.0125,"predicted_optimum":99.99375},{"product":"Product 2","market":"United Kingdom","r2":0.999993,"intercept":5.85625,"b_price":-27.9325,"b_quality":25.1625,"b_marketing":11.2425,"b_green":35.6625,"predicted_optimum":99.99125},{"product":"Product 1","market":"China","r2":0.999993,"intercept":45.22625,"b_price":-47.6225,"b_quality":19.4275,"b_marketing":13.4425,"b_green":19.5075,"predicted_optimum":99.98125},{"product":"Product 2","market":"Germany","r2":0.999998,"intercept":0.04,"b_price":-25.03,"b_quality":28.615,"b_marketing":6.5,"b_green":39.855,"predicted_optimum":99.98},{"product":"Product 1","market":"United Kingdom","r2":0.999996,"intercept":26.31,"b_price":-38.17,"b_quality":17.425,"b_marketing":17.66,"b_green":26.745,"predicted_optimum":99.97},{"product":"Product 2","market":"United States","r2":0.999998,"intercept":8.9275,"b_price":-29.48,"b_quality":27.275,"b_marketing":9.505,"b_green":33.74,"predicted_optimum":99.9675},{"product":"Product 1","market":"Mexico","r2":0.999997,"intercept":44.93125,"b_price":-47.4825,"b_quality":19.4725,"b_marketing":13.4725,"b_green":19.5725,"predicted_optimum":99.96625},{"product":"Product 1","market":"Japan","r2":1.0,"intercept":26.2475,"b_price":-36.08,"b_quality":23.82,"b_marketing":9.945,"b_green":26.075,"predicted_optimum":97.9675}];
+const DM_P2 = [{"market":"Germany","r2":0.9959,"intercept":-6.991752,"b_price":-26.977574,"b_quality":32.416815,"b_marketing":9.103333,"b_green":43.451259,"b_price_green":-0.337274,"b_price_quality":-0.377274},{"market":"Japan","r2":0.995293,"intercept":-5.212489,"b_price":-28.408386,"b_quality":35.953272,"b_marketing":8.093333,"b_green":40.363272,"b_price_green":-0.341038,"b_price_quality":-0.131038},{"market":"United Kingdom","r2":0.993709,"intercept":-2.731399,"b_price":-29.957646,"b_quality":29.644892,"b_marketing":14.305556,"b_green":40.39767,"b_price_green":-0.798299,"b_price_quality":-0.483299}];
+const DM_REG = [{"Sheet":"P1_Japan","Variable":"rPrice","Coefficient":-0.33412,"P-value":0.0,"R-squared":0.927196},{"Sheet":"P1_Japan","Variable":"relMarketing","Coefficient":0.031708,"P-value":0.011887,"R-squared":0.927196},{"Sheet":"P1_Japan","Variable":"lagRelMarketing","Coefficient":0.050237,"P-value":0.000237,"R-squared":0.927196},{"Sheet":"P1_Japan","Variable":"lagRelQual","Coefficient":0.160653,"P-value":0.0,"R-squared":0.927196},{"Sheet":"P1_Japan","Variable":"lagRelGreen","Coefficient":0.202828,"P-value":0.0,"R-squared":0.927196},{"Sheet":"P1_US","Variable":"rPrice","Coefficient":-0.18493,"P-value":0.0,"R-squared":0.924343},{"Sheet":"P1_US","Variable":"relMarketing","Coefficient":0.022001,"P-value":0.009084,"R-squared":0.924343},{"Sheet":"P1_US","Variable":"lagRelMarketing","Coefficient":0.019296,"P-value":0.029274,"R-squared":0.924343},{"Sheet":"P1_US","Variable":"rQual","Coefficient":0.143121,"P-value":0.0,"R-squared":0.924343},{"Sheet":"P1_US","Variable":"lagRelGreen","Coefficient":0.194741,"P-value":0.0,"R-squared":0.924343},{"Sheet":"P1_UK","Variable":"rPrice","Coefficient":-0.373711,"P-value":0.0,"R-squared":0.918661},{"Sheet":"P1_UK","Variable":"relMarketing","Coefficient":0.047465,"P-value":0.001759,"R-squared":0.918661},{"Sheet":"P1_UK","Variable":"lagRelMarketing","Coefficient":0.058388,"P-value":0.000105,"R-squared":0.918661},{"Sheet":"P1_UK","Variable":"lagRelQual","Coefficient":0.178317,"P-value":0.0,"R-squared":0.918661},{"Sheet":"P1_UK","Variable":"lagRelGreen","Coefficient":0.17556,"P-value":0.0,"R-squared":0.918661},{"Sheet":"P1_Germany","Variable":"rPrice","Coefficient":-0.204525,"P-value":0.0,"R-squared":0.894718},{"Sheet":"P1_Germany","Variable":"relMarketing","Coefficient":0.048936,"P-value":0.0,"R-squared":0.894718},{"Sheet":"P1_Germany","Variable":"rQual","Coefficient":0.185124,"P-value":0.0,"R-squared":0.894718},{"Sheet":"P1_Germany","Variable":"lagRelGreen","Coefficient":0.178835,"P-value":0.0,"R-squared":0.894718},{"Sheet":"P1_China","Variable":"rPrice","Coefficient":-0.384268,"P-value":0.0,"R-squared":0.942606},{"Sheet":"P1_China","Variable":"relMarketing","Coefficient":0.04762,"P-value":0.0,"R-squared":0.942606},{"Sheet":"P1_China","Variable":"lagRelMarketing","Coefficient":0.039298,"P-value":1.9e-05,"R-squared":0.942606},{"Sheet":"P1_China","Variable":"lagRelQual","Coefficient":0.116238,"P-value":0.0,"R-squared":0.942606},{"Sheet":"P1_China","Variable":"lagRelGreen","Coefficient":0.198241,"P-value":0.0,"R-squared":0.942606},{"Sheet":"P1_Mexico","Variable":"rPrice","Coefficient":-0.402956,"P-value":0.0,"R-squared":0.915321},{"Sheet":"P1_Mexico","Variable":"relMarketing","Coefficient":0.061714,"P-value":0.0,"R-squared":0.915321},{"Sheet":"P1_Mexico","Variable":"lagRelMarketing","Coefficient":0.037012,"P-value":0.000554,"R-squared":0.915321},{"Sheet":"P1_Mexico","Variable":"lagRelQual","Coefficient":0.130004,"P-value":0.0,"R-squared":0.915321},{"Sheet":"P1_Mexico","Variable":"lagRelGreen","Coefficient":0.181926,"P-value":0.0,"R-squared":0.915321},{"Sheet":"P2_Japan","Variable":"rPrice","Coefficient":-0.240074,"P-value":0.0,"R-squared":0.950961},{"Sheet":"P2_Japan","Variable":"lagRelMarketing","Coefficient":0.026129,"P-value":0.001965,"R-squared":0.950961},{"Sheet":"P2_Japan","Variable":"lagRelQual","Coefficient":0.172429,"P-value":0.0,"R-squared":0.950961},{"Sheet":"P2_Japan","Variable":"lagRelGreen","Coefficient":0.207997,"P-value":0.0,"R-squared":0.950961},{"Sheet":"P2_US","Variable":"rPrice","Coefficient":-0.209981,"P-value":0.0,"R-squared":0.936659},{"Sheet":"P2_US","Variable":"relMarketing","Coefficient":0.045382,"P-value":0.0,"R-squared":0.936659},{"Sheet":"P2_US","Variable":"lagRelMarketing","Coefficient":0.028255,"P-value":0.00095,"R-squared":0.936659},{"Sheet":"P2_US","Variable":"lagRelQual","Coefficient":0.195969,"P-value":0.0,"R-squared":0.936659},{"Sheet":"P2_US","Variable":"lagRelGreen","Coefficient":0.207662,"P-value":0.0,"R-squared":0.936659},{"Sheet":"P2_UK","Variable":"rPrice","Coefficient":-0.355624,"P-value":0.0,"R-squared":0.929297},{"Sheet":"P2_UK","Variable":"relMarketing","Coefficient":0.074208,"P-value":0.0,"R-squared":0.929297},{"Sheet":"P2_UK","Variable":"lagRelMarketing","Coefficient":0.092143,"P-value":0.0,"R-squared":0.929297},{"Sheet":"P2_UK","Variable":"lagRelQual","Coefficient":0.154256,"P-value":3e-05,"R-squared":0.929297},{"Sheet":"P2_UK","Variable":"lagRelGreen","Coefficient":0.189839,"P-value":0.0,"R-squared":0.929297},{"Sheet":"P2_Germany","Variable":"rPrice","Coefficient":-0.275783,"P-value":0.0,"R-squared":0.881753},{"Sheet":"P2_Germany","Variable":"relMarketing","Coefficient":0.042149,"P-value":4e-06,"R-squared":0.881753},{"Sheet":"P2_Germany","Variable":"lagRelMarketing","Coefficient":0.059531,"P-value":0.0,"R-squared":0.881753},{"Sheet":"P2_Germany","Variable":"rQual","Coefficient":0.207772,"P-value":0.0,"R-squared":0.881753},{"Sheet":"P2_Germany","Variable":"lagRelGreen","Coefficient":0.204391,"P-value":0.0,"R-squared":0.881753},{"Sheet":"P2_China","Variable":"rPrice","Coefficient":-0.304726,"P-value":0.0,"R-squared":0.949691},{"Sheet":"P2_China","Variable":"relMarketing","Coefficient":0.063617,"P-value":0.0,"R-squared":0.949691},{"Sheet":"P2_China","Variable":"lagRelMarketing","Coefficient":0.03455,"P-value":0.0,"R-squared":0.949691},{"Sheet":"P2_China","Variable":"lagRelQual","Coefficient":0.118747,"P-value":0.000336,"R-squared":0.949691},{"Sheet":"P2_China","Variable":"lagRelGreen","Coefficient":0.207137,"P-value":0.0,"R-squared":0.949691},{"Sheet":"P2_Mexico","Variable":"rPrice","Coefficient":-0.295321,"P-value":0.0,"R-squared":0.963834},{"Sheet":"P2_Mexico","Variable":"relMarketing","Coefficient":0.060232,"P-value":0.0,"R-squared":0.963834},{"Sheet":"P2_Mexico","Variable":"lagRelMarketing","Coefficient":0.038426,"P-value":0.0,"R-squared":0.963834},{"Sheet":"P2_Mexico","Variable":"lagRelQual","Coefficient":0.106635,"P-value":0.000103,"R-squared":0.963834},{"Sheet":"P2_Mexico","Variable":"lagRelGreen","Coefficient":0.213477,"P-value":0.0,"R-squared":0.963834}];
+
+let dmProduct = 1;
+let dmRadarMarket = null;
+
+const DM_MARKETS = ['China','Germany','Japan','Mexico','United Kingdom','United States'];
+const DM_MKTCOLOR = {China:'#a05195',Germany:'#4472c4',Japan:'#5b9bd5',Mexico:'#76b7b2','United Kingdom':'#e86850','United States':'#e7cc54'};
+const DRIVER_COLORS = {b_price:'#e86850',b_quality:'#5b9bd5',b_marketing:'#e7cc54',b_green:'#69a053'};
+const DRIVER_LABELS = {b_price:'Price',b_quality:'Quality',b_marketing:'Marketing',b_green:'Green'};
+
+function setDemandProduct(p){
+  dmProduct=p;
+  document.querySelectorAll('.dm-prod-btn').forEach(b=>b.classList.toggle('active',+b.dataset.prod===p));
+  renderDemand();
+}
+
+function renderDemand(){
+  const prodLabel = dmProduct===1?'Product 1':'Product 2';
+  const rows = DM_P1.filter(r=>r.product===prodLabel);
+  const markets = rows.map(r=>r.market);
+
+  // R² badges
+  document.getElementById('dm-r2-badges').innerHTML = rows.map(r=>
+    `<span class="dm-r2-badge">${r.market} <strong>R²=${r.r2.toFixed(4)}</strong></span>`
+  ).join('');
+
+  renderDriverChart(rows, markets);
+  renderHeatmap();
+  renderRadarBtns(markets);
+  renderRadar(rows, dmRadarMarket||markets[0]);
+  renderLagChart();
+  renderInteractChart();
+}
+
+// 1. Driver Importance grouped bar
+function renderDriverChart(rows, markets){
+  destroyChart('dm-driver-chart');
+  const drivers = ['b_price','b_quality','b_marketing','b_green'];
+  const datasets = drivers.map(d=>({
+    label: DRIVER_LABELS[d],
+    data: rows.map(r=>r[d]),
+    backgroundColor: DRIVER_COLORS[d]+'cc',
+    borderColor: DRIVER_COLORS[d],
+    borderWidth:1
+  }));
+  charts['dm-driver-chart'] = new Chart(document.getElementById('dm-driver-chart').getContext('2d'),{
+    type:'bar',
+    data:{labels:markets, datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:true,position:'top',labels:{color:'#b4b4b4',font:{size:10},boxWidth:10,padding:10}},
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(2)}`}}
+      },
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#b4b4b4',font:{size:9}}},
+        y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#b4b4b4',font:{size:9}},
+           title:{display:true,text:'Coefficient',color:'#b4b4b4',font:{size:9}}}
+      }
+    }
+  });
+}
+
+// 2. Price sensitivity heatmap (both products, all markets)
+function renderHeatmap(){
+  const allRows = DM_P1;
+  // Group: market -> {p1, p2}
+  const byMkt = {};
+  allRows.forEach(r=>{
+    if(!byMkt[r.market]) byMkt[r.market]={};
+    byMkt[r.market][r.product]=r.b_price;
+  });
+  const mkts = DM_MARKETS;
+  const vals = mkts.flatMap(m=>Object.values(byMkt[m]||{}));
+  const minV=Math.min(...vals), maxV=Math.max(...vals); // both negative
+  const norm=v=>(v-minV)/(maxV-minV||1); // 0=most sensitive, 1=least
+
+  const el=document.getElementById('dm-heatmap');
+  el.innerHTML = mkts.map(m=>{
+    const p1=byMkt[m]?.['Product 1'], p2=byMkt[m]?.['Product 2'];
+    const bar=(v,label)=>{
+      if(v==null) return '<span style="font-size:9px;color:var(--muted)">n/a</span>';
+      const t=norm(v); // closer to 0 = more negative = more sensitive -> darker red
+      const intensity=Math.round(50+150*(1-t));
+      const bg=`rgb(${intensity},${Math.round(intensity*0.3)},${Math.round(intensity*0.3)})`;
+      return `<div style="flex:1;"><div style="font-size:9px;color:var(--muted);margin-bottom:2px;">${label}</div>
+        <div style="background:${bg};border-radius:3px;padding:2px 6px;font-size:10px;font-weight:600;color:#fff;">${v.toFixed(2)}</div></div>`;
+    };
+    return `<div class="hm-row">
+      <div class="hm-label">${m}</div>
+      <div style="flex:1;display:flex;gap:6px;">${bar(p1,'P1')}${bar(p2,'P2')}</div>
+    </div>`;
+  }).join('');
+}
+
+// 3. Radar market selector + chart
+function renderRadarBtns(markets){
+  const container=document.getElementById('dm-radar-btns');
+  if(!dmRadarMarket) dmRadarMarket=markets[0];
+  container.innerHTML=markets.map(m=>
+    `<button class="dm-radar-btn${m===dmRadarMarket?' active':''}" onclick="selectRadarMarket('${m}')">${m}</button>`
+  ).join('');
+}
+
+function selectRadarMarket(m){
+  dmRadarMarket=m;
+  document.querySelectorAll('.dm-radar-btn').forEach(b=>b.classList.toggle('active',b.textContent===m));
+  const prodLabel=dmProduct===1?'Product 1':'Product 2';
+  const rows=DM_P1.filter(r=>r.product===prodLabel);
+  renderRadar(rows,m);
+}
+
+function renderRadar(rows, market){
+  const row=rows.find(r=>r.market===market);
+  if(!row){destroyChart('dm-radar-chart');return;}
+  destroyChart('dm-radar-chart');
+  const drivers=['b_quality','b_marketing','b_green'];
+  const priceAbs=Math.abs(row.b_price);
+  const labels=['Quality','Marketing','Green','Price Sensitivity'];
+  const data=[row.b_quality, row.b_marketing, row.b_green, priceAbs];
+  const col=DM_MKTCOLOR[market]||'#7ac7a8';
+  charts['dm-radar-chart']=new Chart(document.getElementById('dm-radar-chart').getContext('2d'),{
+    type:'radar',
+    data:{labels, datasets:[{
+      label:market, data,
+      backgroundColor:col+'33', borderColor:col, pointBackgroundColor:col,
+      borderWidth:2, pointRadius:3
+    }]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.label}: ${c.parsed.r.toFixed(2)}`}}},
+      scales:{r:{
+        grid:{color:'rgba(255,255,255,.1)'},
+        angleLines:{color:'rgba(255,255,255,.1)'},
+        pointLabels:{color:'#b4b4b4',font:{size:9}},
+        ticks:{color:'#b4b4b4',backdropColor:'transparent',font:{size:7}}
+      }}
+    }
+  });
+}
+
+// 4. Lag effects — immediate vs lagged marketing by market+product
+function renderLagChart(){
+  destroyChart('dm-lag-chart');
+  const prefix = dmProduct===1?'P1_':'P2_';
+  const mktMap={'P1_Japan':'Japan','P1_US':'United States','P1_UK':'United Kingdom','P1_Germany':'Germany','P1_China':'China','P1_Mexico':'Mexico',
+                'P2_Japan':'Japan','P2_US':'United States','P2_UK':'United Kingdom','P2_Germany':'Germany','P2_China':'China','P2_Mexico':'Mexico'};
+  const sheets=[...new Set(DM_REG.filter(r=>r.Sheet.startsWith(prefix)).map(r=>r.Sheet))];
+  const labels=sheets.map(s=>mktMap[s]||s);
+  const getCoef=(sheet,varName)=>{const r=DM_REG.find(x=>x.Sheet===sheet&&x.Variable===varName);return r?r.Coefficient:0;};
+  const immediate=sheets.map(s=>getCoef(s,'relMarketing'));
+  const lagged=sheets.map(s=>getCoef(s,'lagRelMarketing'));
+
+  charts['dm-lag-chart']=new Chart(document.getElementById('dm-lag-chart').getContext('2d'),{
+    type:'bar',
+    data:{labels, datasets:[
+      {label:'Immediate Effect',data:immediate,backgroundColor:'#5b9bd5cc',borderColor:'#5b9bd5',borderWidth:1},
+      {label:'Lagged Effect (prior period)',data:lagged,backgroundColor:'#a05195cc',borderColor:'#a05195',borderWidth:1}
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:true,position:'top',labels:{color:'#b4b4b4',font:{size:10},boxWidth:10,padding:10}},
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y===0?'not significant':c.parsed.y.toFixed(4)}`}}
+      },
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#b4b4b4',font:{size:9}}},
+        y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#b4b4b4',font:{size:9}},
+           title:{display:true,text:'Coefficient',color:'#b4b4b4',font:{size:9}}}
+      }
+    }
+  });
+}
+
+// 5. Phase 2 interaction effects
+function renderInteractChart(){
+  destroyChart('dm-interact-chart');
+  const labels=DM_P2.map(r=>r.market);
+  const mktColors=labels.map(m=>DM_MKTCOLOR[m]||'#7ac7a8');
+  charts['dm-interact-chart']=new Chart(document.getElementById('dm-interact-chart').getContext('2d'),{
+    type:'bar',
+    data:{labels, datasets:[
+      {label:'Base Price Coefficient',data:DM_P2.map(r=>r.b_price),backgroundColor:'#e8685099',borderColor:'#e86850',borderWidth:1},
+      {label:'Price × Green Interaction',data:DM_P2.map(r=>r.b_price_green),backgroundColor:'#69a05399',borderColor:'#69a053',borderWidth:1},
+      {label:'Price × Quality Interaction',data:DM_P2.map(r=>r.b_price_quality),backgroundColor:'#5b9bd599',borderColor:'#5b9bd5',borderWidth:1}
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:true,position:'top',labels:{color:'#b4b4b4',font:{size:10},boxWidth:10,padding:10}},
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y.toFixed(4)}`}}
+      },
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#b4b4b4',font:{size:9}}},
+        y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#b4b4b4',font:{size:9}},
+           title:{display:true,text:'Coefficient',color:'#b4b4b4',font:{size:9}}}
+      }
+    }
+  });
+}
+
+// ── TABS (updated) ───────────────────────────────────────
 let activeTab='executive';
 document.querySelectorAll('.tab').forEach(t=>{
   t.addEventListener('click',()=>{
@@ -756,6 +1024,7 @@ function renderActiveTab(){
   else if(activeTab==='performance') renderPerformance();
   else if(activeTab==='factory') renderFactory();
   else if(activeTab==='ops') renderOps();
+  else if(activeTab==='demand') renderDemand();
 }
 
 // ── FILTERS ───────────────────────────────────────────────

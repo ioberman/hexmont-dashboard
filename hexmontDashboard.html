@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Hexmont Market Analysis Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#111822;--panel:#1d2534;--card:#253148;--border:#2e3f58;
+  --text:#f5f5f5;--muted:#b4b4b4;--accent:#7ac7a8;
+}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;height:100vh;overflow:hidden;}
+
+/* PASSWORD */
+#pwd-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999;}
+.pwd-box{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:40px;width:340px;text-align:center;}
+.pwd-box h2{font-size:20px;font-weight:600;margin-bottom:6px;}
+.pwd-box p{font-size:12px;color:var(--muted);margin-bottom:20px;}
+.pwd-box input{width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:7px;font-size:13px;margin-bottom:10px;outline:none;}
+.pwd-box input:focus{border-color:var(--accent);}
+.pwd-box button{width:100%;background:var(--accent);border:none;color:#111;padding:9px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;}
+.pwd-box button:hover{opacity:.9;}
+#pwd-error{color:#e86850;font-size:11px;margin-top:6px;display:none;}
+
+/* LAYOUT */
+#app{display:none;flex-direction:column;height:100vh;}
+#header{background:#1c2d52;padding:10px 22px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+#header h1{font-size:16px;font-weight:600;color:#fff;}
+#tabs{background:#1c2d52;display:flex;border-bottom:2px solid var(--border);flex-shrink:0;}
+.tab{padding:9px 18px;font-size:12px;cursor:pointer;color:var(--muted);border:none;background:none;border-bottom:3px solid transparent;margin-bottom:-2px;}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600;}
+#filters{background:var(--panel);padding:7px 22px;display:flex;gap:16px;align-items:center;flex-shrink:0;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.filter-group{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted);}
+.filter-group label{font-weight:500;white-space:nowrap;}
+.checkbox-group{display:flex;gap:4px;flex-wrap:wrap;}
+.checkbox-label{display:flex;align-items:center;gap:3px;font-size:10px;cursor:pointer;padding:2px 6px;border-radius:3px;border:1px solid var(--border);background:var(--card);}
+.checkbox-label input{accent-color:var(--accent);cursor:pointer;}
+.checkbox-label.active{border-color:var(--accent);}
+.range-group{display:flex;align-items:center;gap:5px;}
+input[type=range]{accent-color:var(--accent);width:100px;}
+.range-val{font-size:10px;color:var(--text);min-width:26px;text-align:center;}
+
+/* CONTENT — fills remaining height */
+#content{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0;}
+.tab-pane{display:none;flex-direction:column;flex:1;padding:12px 22px;gap:10px;min-height:0;overflow-y:hidden;}
+.tab-pane.active{display:flex;}
+/* Market Performance scrolls since it has many charts */
+#tab-performance{overflow-y:auto;}
+
+/* KPI */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px;flex-shrink:0;}
+.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:13px;}
+.kpi-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;}
+.kpi-value{font-size:20px;font-weight:700;}
+.kpi-sub{font-size:10px;color:var(--muted);margin-top:2px;}
+
+/* CHART ROWS — flex, fill space */
+.chart-row{display:flex;gap:10px;flex:1;min-height:0;}
+.chart-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:13px 15px;display:flex;flex-direction:column;flex:1;min-width:0;min-height:0;}
+.chart-title{font-size:11px;font-weight:600;color:var(--text);flex-shrink:0;margin-bottom:1px;}
+.chart-subtitle{font-size:10px;color:var(--muted);flex-shrink:0;margin-bottom:6px;}
+.chart-wrap{position:relative;flex:1;min-height:0;}
+.chart-wrap canvas{position:absolute;inset:0;width:100%!important;height:100%!important;}
+
+/* Shared perf legend */
+#perf-legend{display:flex;flex-wrap:wrap;gap:10px;flex-shrink:0;padding-bottom:4px;}
+.leg-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);}
+.leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+
+/* Market performance: scrollable, each chart-row has fixed height */
+#tab-performance .chart-row{flex:none;min-height:220px;}
+#tab-performance .chart-row + .chart-row{min-height:210px;}
+
+/* Ranking */
+.rank-table{width:100%;height:100%;border-collapse:collapse;font-size:11px;}
+.rank-table th{padding:7px 7px;text-align:center;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border);font-size:10px;}
+.rank-table td{padding:7px 7px;text-align:center;border-bottom:1px solid var(--border);}
+.rank-table tbody tr:nth-child(even){background:rgba(255,255,255,.03);}
+.rank-table tr:last-child td{border-bottom:none;}
+.rank-cell{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:4px;font-weight:700;font-size:12px;}
+.factory-badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;}
+.badge-before{background:#597caa22;color:#7aaad4;border:1px solid #597caa55;}
+.badge-after{background:#91bab622;color:#91bab6;border:1px solid #91bab655;}
+
+/* Modal */
+#modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;}
+#modal-overlay.show{display:flex;}
+#modal{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px;width:390px;}
+#modal h2{font-size:14px;margin-bottom:5px;}
+#modal p{font-size:11px;color:var(--muted);margin-bottom:10px;}
+.sheet-info{background:var(--card);border-radius:6px;padding:9px 11px;font-size:10px;color:var(--muted);margin-bottom:12px;line-height:1.6;}
+.sheet-info strong{color:var(--text);}
+.btn{padding:6px 13px;border-radius:6px;border:none;font-size:11px;cursor:pointer;font-weight:500;}
+.btn-primary{background:var(--accent);color:#111;}
+.btn-secondary{background:var(--card);color:var(--text);border:1px solid var(--border);}
+.btn:hover{opacity:.9;}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;}
+#file-drop{border:2px dashed var(--border);border-radius:7px;padding:16px;text-align:center;color:var(--muted);font-size:11px;cursor:pointer;margin-bottom:10px;}
+#file-drop:hover,#file-drop.drag{border-color:var(--accent);color:var(--text);}
+#file-drop input{display:none;}
+</style>
+</head>
+<body>
+
+<div id="pwd-screen">
+  <div class="pwd-box">
+    <h2>Hexmont Analytics</h2>
+    <p>Enter your access password to continue</p>
+    <input type="password" id="pwd-input" placeholder="Password" onkeydown="if(event.key==='Enter')checkPwd()">
+    <button onclick="checkPwd()">Access Dashboard</button>
+    <div id="pwd-error">Incorrect password. Please try again.</div>
+  </div>
+</div>
+
+<div id="app">
+  <div id="header">
+    <h1>Hexmont Market &amp; Operations Analysis</h1>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span id="period-display" style="font-size:11px;color:var(--muted);"></span>
+      <button class="btn btn-secondary" onclick="openModal()">&#128196; Update Data</button>
+    </div>
+  </div>
+
+  <div id="tabs">
+    <button class="tab active" data-tab="executive">Executive Summary</button>
+    <button class="tab" data-tab="performance">Market Performance</button>
+    <button class="tab" data-tab="factory">Factory Relocation ROI</button>
+    <button class="tab" data-tab="ops">Inventory &amp; Operations</button>
+  </div>
+
+  <div id="filters">
+    <div class="filter-group"><label>Countries</label><div class="checkbox-group" id="country-filters"></div></div>
+    <div class="filter-group"><label>Product</label><div class="checkbox-group" id="product-filters"></div></div>
+    <div class="filter-group">
+      <label>Period</label>
+      <div class="range-group">
+        <span class="range-val" id="pmin-label">P1</span>
+        <input type="range" id="pmin" min="1" max="60" value="1">
+        &ndash;
+        <input type="range" id="pmax" min="1" max="60" value="60">
+        <span class="range-val" id="pmax-label">P60</span>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="applyFilters()">Apply</button>
+  </div>
+
+  <div id="content">
+
+    <!-- EXECUTIVE SUMMARY -->
+    <div id="tab-executive" class="tab-pane active">
+      <div class="kpi-row" id="exec-kpis"></div>
+      <div class="chart-row">
+        <div class="chart-card" style="flex:1;">
+          <div class="chart-title">Market Prioritization Matrix</div>
+          <div class="chart-subtitle">Contribution/unit vs marketing expense/unit &mdash; bubble area = total contribution margin</div>
+          <div class="chart-wrap"><canvas id="bubble-chart" role="img" aria-label="Market prioritization bubble chart"></canvas></div>
+        </div>
+        <div class="chart-card" style="flex:1;">
+          <div class="chart-title">Rankings by Category</div>
+          <div class="chart-subtitle">Aggregated across selected period range &mdash; overall rank sorts rows</div>
+          <div id="rank-table-wrap" style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;justify-content:space-between;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MARKET PERFORMANCE (scrollable) -->
+    <div id="tab-performance" class="tab-pane">
+      <div id="perf-legend"></div>
+      <div class="chart-row" style="min-height:220px;"><div class="chart-card">
+        <div class="chart-title">Total Contribution Margin by Market</div>
+        <div class="chart-wrap" style="min-height:210px;"><canvas id="cm-chart" role="img" aria-label="CM by market"></canvas></div>
+      </div></div>
+      <div class="chart-row" style="min-height:200px;gap:10px;">
+        <div class="chart-card"><div class="chart-title">Contribution per Unit</div>
+          <div class="chart-wrap" style="min-height:190px;"><canvas id="cpu-chart" role="img" aria-label="CM per unit"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">Market Contribution Efficiency <span style="font-size:9px;color:var(--muted)">(CM / OpEx)</span></div>
+          <div class="chart-wrap" style="min-height:190px;"><canvas id="eff-chart" role="img" aria-label="CM efficiency"></canvas></div></div>
+      </div>
+      <div class="chart-row" style="min-height:200px;gap:10px;">
+        <div class="chart-card"><div class="chart-title">Marketing Expense per Unit Sold</div>
+          <div class="chart-wrap" style="min-height:190px;"><canvas id="mkt-chart" role="img" aria-label="Mkt expense per unit"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">Per Unit Gross Margin <span style="font-size:9px;color:var(--muted)">(Revenue &minus; Mfg Cost) / Unit</span></div>
+          <div class="chart-wrap" style="min-height:190px;"><canvas id="gm-chart" role="img" aria-label="Per unit gross margin"></canvas></div></div>
+      </div>
+    </div>
+
+    <!-- FACTORY RELOCATION -->
+    <div id="tab-factory" class="tab-pane">
+      <div style="font-size:11px;color:var(--muted);flex-shrink:0;">
+        Factory relocation at <strong style="color:var(--text)">Period <span id="reloc-label">38</span></strong> &nbsp;|&nbsp;
+        <span class="factory-badge badge-before">Before: P33&ndash;37</span> &nbsp;
+        <span class="factory-badge badge-after">After: P38&ndash;42</span>
+      </div>
+      <div class="chart-row" style="flex:2;">
+        <div class="chart-card">
+          <div class="chart-title">
+            <span style="color:#e7cc54;font-weight:700;text-decoration:underline">Revenue</span>
+            <span style="font-weight:400"> vs </span>
+            <span style="color:#69a053;font-weight:700;text-decoration:underline">Operating Expenses</span>
+            <span style="color:var(--muted);font-weight:400;font-size:10px"> &mdash; factory relocation at P<span class="reloc-ref">38</span></span>
+          </div>
+          <div class="chart-wrap"><canvas id="revopex-chart" role="img" aria-label="Revenue vs OpEx"></canvas></div>
+        </div>
+      </div>
+      <div class="chart-row" style="flex:1.2;">
+        <div class="chart-card">
+          <div class="chart-title">Avg. Contribution Margin</div>
+          <div class="chart-subtitle"><span class="factory-badge badge-before">Before</span> vs <span class="factory-badge badge-after">After</span> (P33&ndash;37 vs P38&ndash;42)</div>
+          <div class="chart-wrap"><canvas id="cmba-chart" role="img" aria-label="CM before vs after"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Avg. CM Efficiency</div>
+          <div class="chart-subtitle"><span class="factory-badge badge-before">Before</span> vs <span class="factory-badge badge-after">After</span> (P33&ndash;37 vs P38&ndash;42)</div>
+          <div class="chart-wrap"><canvas id="effba-chart" role="img" aria-label="Efficiency before vs after"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INVENTORY & OPS -->
+    <div id="tab-ops" class="tab-pane">
+      <div class="kpi-row" id="inv-kpis"></div>
+      <div class="chart-row" style="flex:2;">
+        <div class="chart-card">
+          <div class="chart-title">Cumulative Inventory Balance by Product</div>
+          <div class="chart-subtitle">Running total (units produced &minus; units sold) &mdash; negative = unmet demand</div>
+          <div class="chart-wrap"><canvas id="cumbal-chart" role="img" aria-label="Cumulative inventory"></canvas></div>
+        </div>
+      </div>
+      <div class="chart-row" style="flex:1.2;">
+        <div class="chart-card">
+          <div class="chart-title">Period over Period: Production vs Units Sold</div>
+          <div class="chart-wrap"><canvas id="prodvssold-chart" role="img" aria-label="Production vs sold"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Period Inventory Balance</div>
+          <div class="chart-subtitle">Units produced &minus; sold each period</div>
+          <div class="chart-wrap"><canvas id="perbal-chart" role="img" aria-label="Period inventory balance"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="modal-overlay">
+  <div id="modal">
+    <h2>&#128196; Update Dashboard Data</h2>
+    <p>Upload a new Excel file from your simulation interface.</p>
+    <div class="sheet-info">
+      <strong>Required sheets:</strong><br>
+      <strong>countryFinancials:</strong> Country, Product, Attribute, Contribution Margin, Units Sold, Sales Revenue, Deliverd Manufacturing Cost, Marketing Expense, Import Tariff<br>
+      <strong>Inventory Comparison:</strong> Product, Attribute, Total Production, Total Units Sold
+    </div>
+    <div class="filter-group" style="margin-bottom:10px;font-size:11px;">
+      <label style="color:var(--muted)">Factory Relocation Period:</label>
+      <input type="number" id="reloc-period-input" value="38" min="1" max="60" style="width:50px;background:var(--card);color:var(--text);border:1px solid var(--border);padding:3px 6px;border-radius:4px;font-size:11px;">
+    </div>
+    <div id="file-drop" onclick="document.getElementById('file-input').click()"
+         ondragover="event.preventDefault();this.classList.add('drag')"
+         ondragleave="this.classList.remove('drag')"
+         ondrop="handleDrop(event)">
+      <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFile(this.files[0])">
+      &#128196; Click to browse or drag &amp; drop Excel file
+    </div>
+    <div id="upload-status" style="font-size:11px;display:none;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── PASSWORD ──────────────────────────────────────────────
+function checkPwd(){
+  if(document.getElementById('pwd-input').value==='firm1'){
+    document.getElementById('pwd-screen').style.display='none';
+    document.getElementById('app').style.display='flex';
+    init();
+  } else {
+    document.getElementById('pwd-error').style.display='block';
+    document.getElementById('pwd-input').value='';
+  }
+}
+
+// ── DATA ──────────────────────────────────────────────────
+// CF: [Country, Product, pNum, CM, UnitsSold, Revenue, ManufCost, MktExp, ImportTariff]
+const CF_RAW = [["China", 1, 1, 215730.63, 16468, 968705.88, 458857.26, 294118.0, 0.0], ["China", 1, 2, 372270.06, 16000, 840000.0, 355229.94, 112500.0, 0.0], ["China", 1, 3, 401759.57, 16839, 830416.44, 346464.87, 82192.0, 0.0], ["China", 1, 4, 494979.65, 18573, 955182.86, 374489.2, 85714.0, 0.0], ["China", 1, 5, 447341.84, 17915, 921342.86, 359715.01, 114286.0, 0.0], ["China", 1, 6, 300809.31, 13535, 686281.69, 272796.38, 112676.0, 0.0], ["China", 1, 7, 303199.64, 13645, 701742.86, 284257.22, 114286.0, 0.0], ["China", 1, 8, 474070.25, 23436, 1069904.35, 479892.1, 115942.0, 0.0], ["China", 1, 9, 461285.5, 22814, 1012170.42, 438208.92, 112676.0, 0.0], ["China", 1, 10, 491318.81, 21267, 930431.25, 383556.44, 55556.0, 0.0], ["China", 1, 11, 339115.86, 17814, 768686.3, 319981.45, 109589.0, 0.0], ["China", 1, 12, 401478.59, 17149, 771705.0, 313083.41, 57143.0, 0.0], ["China", 1, 13, 471287.16, 22726, 1008266.2, 424303.03, 112676.0, 0.0], ["China", 1, 14, 462939.34, 18919, 863693.48, 357276.14, 43478.0, 0.0], ["China", 1, 15, 392502.12, 16486, 752621.74, 316641.62, 43478.0, 0.0], ["China", 1, 16, 301550.07, 14103, 643832.61, 298804.53, 43478.0, 0.0], ["China", 1, 17, 254016.21, 14841, 687487.5, 315824.29, 117647.0, 0.0], ["China", 1, 18, 329986.75, 17150, 771750.0, 327477.25, 114286.0, 0.0], ["China", 1, 19, 432051.03, 18875, 904769.02, 356776.0, 115942.0, 0.0], ["China", 1, 20, 447681.79, 20010, 945472.5, 383504.71, 114286.0, 0.0], ["China", 1, 21, 463949.65, 19722, 973589.78, 390237.13, 119403.0, 0.0], ["China", 1, 22, 468377.82, 21443, 998911.58, 417857.76, 112676.0, 0.0], ["China", 1, 23, 472429.24, 19187, 969543.09, 363780.85, 133333.0, 0.0], ["China", 1, 24, 437414.75, 20622, 974389.5, 399831.75, 137143.0, 0.0], ["China", 1, 25, 384403.92, 16387, 839718.35, 320103.43, 135211.0, 0.0], ["China", 1, 26, 414563.76, 18400, 908523.0, 356816.24, 137143.0, 0.0], ["China", 1, 27, 339879.11, 17200, 818500.79, 339491.68, 139130.0, 0.0], ["China", 1, 28, 265024.6, 14998, 719752.77, 307036.17, 147692.0, 0.0], ["China", 1, 29, 196683.33, 21405, 763080.81, 429254.48, 137143.0, 0.0], ["China", 1, 30, 273697.7, 21768, 826631.74, 413804.04, 139130.0, 0.0], ["China", 1, 31, 331707.41, 22624, 889207.86, 420357.44, 137143.0, 0.0], ["China", 1, 32, 354207.79, 23174, 951608.12, 454116.33, 143284.0, 0.0], ["China", 1, 33, 335155.66, 19580, 816207.71, 405294.05, 75758.0, 0.0], ["China", 1, 34, 430797.94, 21539, 942763.67, 436207.73, 75758.0, 0.0], ["China", 1, 35, 345641.55, 17492, 777405.04, 354840.48, 76923.0, 0.0], ["China", 1, 36, 352274.86, 18422, 782616.69, 356812.82, 73529.0, 0.0], ["China", 1, 37, 415840.73, 19892, 861967.61, 374697.88, 71429.0, 0.0], ["China", 1, 38, 288528.79, 19813, 858544.35, 419600.48, 71429.0, 78986.08], ["China", 1, 39, 301598.51, 18867, 880440.54, 420918.49, 76923.0, 81000.53], ["China", 1, 40, 305157.24, 18747, 888510.05, 423484.88, 78125.0, 81742.92], ["China", 1, 41, 329432.41, 19650, 953658.92, 436489.89, 100000.0, 87736.62], ["China", 1, 42, 363827.65, 21325, 1034950.45, 475907.36, 100000.0, 95215.44], ["China", 1, 43, 375555.45, 22560, 1078298.59, 505054.67, 98485.0, 99203.47], ["China", 1, 44, 408426.91, 20577, 1064964.81, 456998.14, 101563.0, 97976.76], ["China", 1, 45, 410686.5, 20336, 1069198.05, 456970.33, 103175.0, 98366.22], ["China", 1, 46, 439932.13, 20803, 1122701.59, 476305.91, 103175.0, 103288.55], ["China", 1, 47, 461063.69, 22194, 1179056.25, 507956.38, 101563.0, 108473.17], ["China", 1, 48, 454432.51, 22259, 1164316.92, 502767.26, 100000.0, 107117.16], ["China", 1, 49, 511395.64, 20301, 1045809.09, 435928.45, 98485.0, 0.0], ["China", 1, 50, 548711.51, 20411, 1067652.31, 418940.8, 100000.0, 0.0], ["China", 1, 51, 551288.6, 22192, 1077897.14, 433751.54, 92857.0, 0.0], ["China", 1, 52, 589837.68, 23002, 1117240.0, 434545.32, 92857.0, 0.0], ["China", 1, 53, 568220.46, 22790, 1106942.86, 445865.39, 92857.0, 0.0], ["China", 1, 54, 582437.87, 21521, 1125713.85, 443275.98, 100000.0, 0.0], ["China", 1, 55, 583391.27, 21592, 1112315.15, 438014.88, 90909.0, 0.0], ["China", 1, 56, 598016.51, 20834, 1106806.25, 415039.74, 93750.0, 0.0], ["China", 1, 57, 602676.71, 21658, 1115715.15, 422129.45, 90909.0, 0.0], ["China", 1, 58, 606181.83, 21795, 1106014.93, 410281.09, 89552.0, 0.0], ["China", 1, 59, 608548.58, 21521, 1108657.58, 409200.0, 90909.0, 0.0], ["China", 1, 60, 608576.66, 21284, 1113316.92, 412432.26, 92308.0, 0.0], ["China", 2, 1, 290086.59, 16094, 1301720.59, 524228.7, 367647.0, 119758.29], ["China", 2, 2, 328416.31, 17217, 1076062.5, 536148.44, 112500.0, 98997.75], ["China", 2, 3, 369482.23, 16182, 1117223.01, 494271.27, 150685.0, 102784.52], ["China", 2, 4, 463214.52, 20138, 1359315.0, 613900.5, 157143.0, 125056.98], ["China", 2, 5, 468632.59, 20576, 1388880.0, 635327.45, 157143.0, 127776.96], ["China", 2, 6, 298750.25, 16302, 1084886.62, 531396.8, 154930.0, 99809.57], ["China", 2, 7, 334988.12, 16507, 1114222.5, 519582.91, 157143.0, 102508.47], ["China", 2, 8, 434361.77, 17776, 1298420.87, 585184.38, 159420.0, 119454.72], ["China", 2, 9, 307140.67, 18440, 1168732.39, 599138.35, 154930.0, 107523.38], ["China", 2, 10, 352493.54, 16594, 1037125.0, 519771.96, 69444.0, 95415.5], ["China", 2, 11, 225951.91, 15201, 937047.95, 474202.63, 150685.0, 86208.41], ["China", 2, 12, 304423.46, 13771, 885278.57, 427980.49, 71429.0, 81445.63], ["China", 2, 13, 301400.68, 22265, 1481720.07, 691888.14, 352113.0, 136318.25], ["China", 2, 14, 511503.74, 18822, 1288897.83, 586351.49, 72464.0, 118578.6], ["China", 2, 15, 310070.3, 14132, 967734.78, 438197.89, 130435.0, 89031.6], ["China", 2, 16, 224320.01, 11641, 797155.43, 369062.13, 130435.0, 73338.3], ["China", 2, 17, 268273.1, 13566, 942637.5, 440582.75, 147059.0, 86722.65], ["China", 2, 18, 309455.14, 15012, 1013310.0, 467773.34, 142857.0, 93224.52], ["China", 2, 19, 401639.42, 15833, 1138427.12, 487124.41, 144928.0, 104735.29], ["China", 2, 20, 440455.3, 16975, 1203103.12, 509105.34, 142857.0, 110685.49], ["China", 2, 21, 475922.22, 16555, 1225873.04, 487916.5, 149254.0, 112780.32], ["China", 2, 22, 466495.11, 17775, 1242059.42, 520449.84, 140845.0, 114269.47], ["China", 2, 23, 547098.13, 18035, 1366996.64, 527467.82, 166667.0, 125763.69], ["China", 2, 24, 525813.87, 19806, 1403750.25, 577362.35, 171429.0, 129145.02], ["China", 2, 25, 569768.7, 18100, 1391246.3, 524468.94, 169014.0, 127994.66], ["China", 2, 26, 607444.97, 20276, 1501729.27, 584696.2, 171429.0, 138159.09], ["China", 2, 27, 531000.45, 19420, 1386216.75, 553771.36, 173913.0, 127531.94], ["China", 2, 28, 460826.67, 17411, 1253328.66, 492580.75, 184615.0, 115306.24], ["China", 2, 29, 240279.91, 22252, 1189914.1, 668733.09, 171429.0, 109472.1], ["China", 2, 30, 327347.5, 21522, 1225934.98, 611888.46, 173913.0, 112786.02], ["China", 2, 31, 375886.39, 21409, 1262180.71, 598744.7, 171429.0, 116120.63], ["China", 2, 32, 414632.24, 21358, 1315554.9, 600787.61, 179104.0, 121031.05], ["China", 2, 33, 430302.61, 17802, 1113135.57, 504666.49, 75758.0, 102408.47], ["China", 2, 34, 460792.67, 17239, 1131828.52, 491149.62, 75758.0, 104128.22], ["China", 2, 35, 349457.29, 13510, 900646.76, 391406.96, 76923.0, 82859.5], ["China", 2, 36, 346392.84, 14399, 917563.05, 413225.41, 73529.0, 84415.8], ["China", 2, 37, 388896.48, 14811, 971862.23, 422125.43, 71429.0, 89411.33], ["China", 2, 38, 390767.67, 14792, 970615.5, 419122.2, 71429.0, 89296.63], ["China", 2, 39, 431434.56, 14255, 1007331.07, 406299.05, 76923.0, 92674.46], ["China", 2, 40, 472382.96, 14991, 1075892.78, 426402.68, 78125.0, 98982.14], ["China", 2, 41, 518793.68, 15920, 1169988.0, 451247.43, 92308.0, 107638.9], ["China", 2, 42, 513766.68, 15837, 1163888.19, 450735.8, 92308.0, 107077.71], ["China", 2, 43, 507092.07, 16181, 1171151.62, 465404.61, 90909.0, 107745.95], ["China", 2, 44, 525920.46, 14533, 1138980.53, 414523.87, 93750.0, 104786.21], ["China", 2, 45, 537891.65, 14380, 1144878.34, 406419.87, 95238.0, 105328.81], ["China", 2, 46, 549728.98, 14801, 1174682.54, 421644.77, 95238.0, 108070.79], ["China", 2, 47, 571305.06, 15606, 1219218.75, 441995.56, 93750.0, 112168.12], ["China", 2, 48, 546883.22, 15384, 1183384.62, 435322.01, 92308.0, 108871.38], ["China", 2, 49, 457715.22, 14197, 1075530.3, 427957.3, 90909.0, 98948.79], ["China", 2, 50, 491795.74, 14535, 1118076.92, 431110.11, 92308.0, 102863.08], ["China", 2, 51, 455751.05, 18509, 1189864.29, 538931.72, 85714.0, 109467.51], ["China", 2, 52, 479199.42, 19339, 1243221.43, 563931.64, 85714.0, 114376.37], ["China", 2, 53, 479517.64, 19299, 1240650.0, 561278.56, 85714.0, 114139.8], ["China", 2, 54, 540977.32, 18733, 1296900.0, 544299.88, 92308.0, 119314.8], ["China", 2, 55, 540356.07, 20143, 1373386.36, 585466.75, 121212.0, 126351.55], ["China", 2, 56, 558031.57, 19499, 1371023.44, 561857.71, 125000.0, 126134.16], ["China", 2, 57, 566319.9, 20754, 1415045.45, 597329.37, 121212.0, 130184.18], ["China", 2, 58, 559476.73, 21085, 1416156.72, 606990.57, 119403.0, 130286.42], ["China", 2, 59, 570978.86, 20719, 1412659.09, 590503.59, 121212.0, 129964.64], ["China", 2, 60, 585363.37, 20592, 1425600.0, 586004.43, 123077.0, 131155.2], ["Germany", 1, 1, 676636.72, 38279, 2435936.36, 1089556.96, 389610.0, 280132.68], ["Germany", 1, 2, 689664.74, 35903, 2111096.4, 818655.58, 360000.0, 242776.09], ["Germany", 1, 3, 753820.99, 35509, 2002707.6, 751908.23, 266667.0, 230311.37], ["Germany", 1, 4, 904772.57, 44243, 2357686.18, 918621.7, 263158.0, 271133.91], ["Germany", 1, 5, 853949.28, 45560, 2396337.66, 942134.55, 324675.0, 275578.83], ["Germany", 1, 6, 555257.13, 32868, 1774872.0, 682171.59, 333333.0, 204110.28], ["Germany", 1, 7, 504858.61, 34330, 1853820.0, 735772.09, 400000.0, 213189.3], ["Germany", 1, 8, 1017691.7, 39768, 2543058.95, 838178.47, 394737.0, 292451.78], ["Germany", 1, 9, 987940.77, 40538, 2463868.05, 802972.45, 389610.0, 283344.83], ["Germany", 1, 10, 1075340.99, 41672, 2532791.69, 776569.65, 389610.0, 291271.04], ["Germany", 1, 11, 809481.13, 33511, 2063572.11, 622043.18, 394737.0, 237310.79], ["Germany", 1, 12, 1023870.23, 39803, 2451026.84, 750551.53, 394737.0, 281868.09], ["Germany", 1, 13, 1088635.53, 45554, 2662246.75, 877842.85, 389610.0, 306158.38], ["Germany", 1, 14, 1174444.4, 42188, 2632531.2, 822012.71, 333333.0, 302741.09], ["Germany", 1, 15, 909788.28, 36326, 2207865.97, 719498.11, 324675.0, 253904.59], ["Germany", 1, 16, 767190.93, 35258, 2101743.12, 768176.73, 324675.0, 241700.46], ["Germany", 1, 17, 703490.87, 36032, 2120344.62, 788399.11, 384615.0, 243839.63], ["Germany", 1, 18, 845906.48, 38634, 2244684.3, 760892.13, 379747.0, 258138.69], ["Germany", 1, 19, 1032904.49, 40960, 2498819.24, 798803.54, 379747.0, 287364.21], ["Germany", 1, 20, 1065196.11, 42219, 2575626.21, 834486.09, 379747.0, 296197.01], ["Germany", 1, 21, 1063067.62, 43672, 2630965.05, 890336.45, 375000.0, 302560.98], ["Germany", 1, 22, 1122288.34, 44303, 2702763.4, 889910.27, 379747.0, 310817.79], ["Germany", 1, 23, 1186390.5, 38703, 2630538.71, 757021.26, 384615.0, 302511.95], ["Germany", 1, 24, 1026015.93, 40659, 2512257.06, 812716.57, 384615.0, 288909.56], ["Germany", 1, 25, 871606.16, 31877, 2139168.63, 641811.08, 379747.0, 246004.39], ["Germany", 1, 26, 939471.88, 34697, 2184339.88, 693668.91, 300000.0, 251199.09], ["Germany", 1, 27, 781052.94, 32616, 1975356.51, 663340.56, 303797.0, 227166.0], ["Germany", 1, 28, 595475.42, 30129, 1733497.07, 634872.49, 303797.0, 199352.16], ["Germany", 1, 29, 491327.36, 39595, 1822505.0, 817792.57, 303797.0, 209588.08], ["Germany", 1, 30, 668053.07, 41152, 2014378.68, 806980.06, 307692.0, 231653.55], ["Germany", 1, 31, 817567.77, 43581, 2211587.72, 835890.37, 303797.0, 254332.59], ["Germany", 1, 32, 860985.8, 46210, 2375064.65, 933254.42, 307692.0, 273132.44], ["Germany", 1, 33, 727797.48, 45097, 2347961.64, 960538.58, 389610.0, 270015.59], ["Germany", 1, 34, 1077851.22, 52283, 2895811.42, 1090204.89, 394737.0, 333018.31], ["Germany", 1, 35, 989630.89, 49210, 2725606.41, 1027793.79, 394737.0, 313444.74], ["Germany", 1, 36, 1056148.71, 50885, 2781777.71, 1016114.56, 389610.0, 319904.44], ["Germany", 1, 37, 1326344.96, 52764, 3109489.66, 1025553.39, 400000.0, 357591.31], ["Germany", 1, 38, 1600099.63, 54034, 3101623.38, 1111913.75, 389610.0, 0.0], ["Germany", 1, 39, 1583704.7, 55288, 3173604.65, 1200289.95, 389610.0, 0.0], ["Germany", 1, 40, 1565559.84, 56240, 3186862.88, 1236688.04, 384615.0, 0.0], ["Germany", 1, 41, 1624334.34, 54797, 3188421.28, 1184339.95, 379747.0, 0.0], ["Germany", 1, 42, 1661031.87, 55959, 3256033.48, 1215254.61, 379747.0, 0.0], ["Germany", 1, 43, 1646178.29, 55659, 3238577.66, 1212652.37, 379747.0, 0.0], ["Germany", 1, 44, 1685462.63, 53211, 3210308.3, 1149845.67, 375000.0, 0.0], ["Germany", 1, 45, 1685179.93, 52644, 3216304.04, 1151377.11, 379747.0, 0.0], ["Germany", 1, 46, 1721016.66, 53657, 3301969.23, 1196337.57, 384615.0, 0.0], ["Germany", 1, 47, 1833125.96, 56501, 3476984.62, 1259243.65, 384615.0, 0.0], ["Germany", 1, 48, 1816124.97, 56635, 3441113.92, 1245241.95, 379747.0, 0.0], ["Germany", 1, 49, 1223932.54, 51534, 3092040.0, 1137522.86, 375000.0, 355584.6], ["Germany", 1, 50, 1308979.48, 51727, 3142906.33, 1092745.62, 379747.0, 361434.23], ["Germany", 1, 51, 1349761.2, 53205, 3165360.76, 1071836.07, 379747.0, 364016.49], ["Germany", 1, 52, 1449870.73, 55175, 3282563.29, 1075450.79, 379747.0, 377494.78], ["Germany", 1, 53, 1408665.72, 54075, 3258365.38, 1090372.65, 384615.0, 374712.02], ["Germany", 1, 54, 1360663.58, 55331, 3291844.3, 1172871.63, 379747.0, 378562.09], ["Germany", 1, 55, 1405551.03, 55229, 3244703.75, 1153511.79, 312500.0, 373140.93], ["Germany", 1, 56, 1422517.9, 54122, 3219916.46, 1110652.17, 316456.0, 370290.39], ["Germany", 1, 57, 1447547.28, 54175, 3223069.62, 1088413.34, 316456.0, 370653.01], ["Germany", 1, 58, 1464264.01, 53592, 3188384.81, 1041000.54, 316456.0, 366664.25], ["Germany", 1, 59, 1469846.22, 53106, 3199976.92, 1041620.35, 320513.0, 367997.35], ["Germany", 1, 60, 1445866.44, 53936, 3208850.63, 1077510.37, 316456.0, 369017.82], ["Germany", 2, 1, 1028573.84, 42195, 3287922.08, 1361756.2, 519481.0, 378111.04], ["Germany", 2, 2, 800927.15, 39933, 2635578.0, 1231559.38, 300000.0, 303091.47], ["Germany", 2, 3, 566687.63, 38835, 2796120.0, 1174545.57, 733333.0, 321553.8], ["Germany", 2, 4, 1009657.79, 51366, 3710517.63, 1550466.32, 723684.0, 426709.53], ["Germany", 2, 5, 1068095.31, 54805, 3907525.32, 1675778.6, 714286.0, 449365.41], ["Germany", 2, 6, 643120.09, 42372, 3101630.4, 1368489.81, 733333.0, 356687.5], ["Germany", 2, 7, 683440.45, 42159, 3086038.8, 1314370.88, 733333.0, 354894.46], ["Germany", 2, 8, 911092.93, 48937, 3650957.76, 1596320.69, 723684.0, 419860.14], ["Germany", 2, 9, 521668.29, 44451, 3013431.43, 1430932.52, 714286.0, 346544.61], ["Germany", 2, 10, 609239.59, 45681, 3096815.84, 1417156.43, 714286.0, 356133.82], ["Germany", 2, 11, 460379.94, 39614, 2720856.32, 1223893.9, 723684.0, 312898.48], ["Germany", 2, 12, 626697.22, 45002, 3090926.84, 1385089.03, 723684.0, 355456.59], ["Germany", 2, 13, 1107431.55, 51995, 3646402.6, 1600153.75, 519481.0, 419336.3], ["Germany", 2, 14, 995039.78, 52586, 3786192.0, 1622407.14, 733333.0, 435412.08], ["Germany", 2, 15, 362823.32, 38491, 2699368.83, 1181962.1, 844156.0, 310427.42], ["Germany", 2, 16, 376837.9, 39822, 2792711.69, 1250555.94, 844156.0, 321161.84], ["Germany", 2, 17, 1015212.16, 43710, 3026076.92, 1406455.92, 256410.0, 347998.85], ["Germany", 2, 18, 1112741.57, 46093, 3150660.76, 1422428.2, 253165.0, 362325.99], ["Germany", 2, 19, 1191106.26, 43697, 3136227.72, 1331290.27, 253165.0, 360666.19], ["Germany", 2, 20, 1273103.66, 45120, 3238359.49, 1339679.5, 253165.0, 372411.34], ["Germany", 2, 21, 1295636.28, 46067, 3264998.62, 1343887.5, 250000.0, 375474.84], ["Germany", 2, 22, 1343272.43, 46222, 3317452.41, 1339507.95, 253165.0, 381507.03], ["Germany", 2, 23, 1616791.27, 44793, 3581717.19, 1296618.45, 256410.0, 411897.48], ["Germany", 2, 24, 1472050.94, 48714, 3541133.08, 1405441.83, 256410.0, 407230.3], ["Germany", 2, 25, 1480814.26, 42093, 3323215.71, 1207066.64, 253165.0, 382169.81], ["Germany", 2, 26, 1457573.14, 47489, 3517243.1, 1355187.01, 300000.0, 404482.96], ["Germany", 2, 27, 1314176.21, 46437, 3308720.01, 1310244.0, 303797.0, 380502.8], ["Germany", 2, 28, 1144282.63, 45375, 3071398.07, 1270107.66, 303797.0, 353210.78], ["Germany", 2, 29, 701763.34, 55338, 2996628.56, 1646455.94, 303797.0, 344612.28], ["Germany", 2, 30, 914111.21, 53507, 3081355.78, 1505196.65, 307692.0, 354355.91], ["Germany", 2, 31, 1042352.87, 53484, 3193095.69, 1479739.82, 303797.0, 367206.0], ["Germany", 2, 32, 1101906.16, 54882, 3318566.1, 1527332.84, 307692.0, 381635.1], ["Germany", 2, 33, 987376.17, 55120, 3376242.47, 1546053.41, 454545.0, 388267.88], ["Germany", 2, 34, 1277248.58, 58953, 3841463.95, 1661921.02, 460526.0, 441768.35], ["Germany", 2, 35, 1205018.62, 57440, 3742874.65, 1646899.45, 460526.0, 430430.59], ["Germany", 2, 36, 1252565.23, 59855, 3849587.13, 1699774.39, 454545.0, 442702.52], ["Germany", 2, 37, 1508433.05, 58535, 4096987.78, 1650734.14, 466667.0, 471153.59], ["Germany", 2, 38, 1427330.07, 60511, 4125284.59, 1769001.79, 454545.0, 474407.73], ["Germany", 2, 39, 1481389.14, 62587, 4266814.08, 1840196.32, 454545.0, 490683.62], ["Germany", 2, 40, 1551565.55, 66198, 4455131.99, 1942508.26, 448718.0, 512340.18], ["Germany", 2, 41, 1599978.6, 65999, 4560935.31, 1930120.16, 506329.0, 524507.56], ["Germany", 2, 42, 1593419.46, 66034, 4563354.03, 1938819.85, 506329.0, 524785.71], ["Germany", 2, 43, 1592598.41, 66640, 4605232.34, 1976703.21, 506329.0, 529601.72], ["Germany", 2, 44, 1590018.12, 61487, 4405815.08, 1809128.22, 500000.0, 506668.73], ["Germany", 2, 45, 1577176.35, 59437, 4312833.95, 1733352.69, 506329.0, 495975.9], ["Germany", 2, 46, 1562389.26, 58812, 4297800.0, 1728342.74, 512821.0, 494247.0], ["Germany", 2, 47, 1640255.25, 60734, 4438253.85, 1774778.4, 512821.0, 510399.19], ["Germany", 2, 48, 1578381.0, 60152, 4340081.01, 1756261.7, 506329.0, 499109.32], ["Germany", 2, 49, 1372063.26, 56367, 4016148.75, 1682228.38, 500000.0, 461857.11], ["Germany", 2, 50, 1463226.11, 57098, 4119729.11, 1676405.16, 506329.0, 473768.85], ["Germany", 2, 51, 1466749.95, 60161, 4188424.05, 1733676.33, 506329.0, 481668.77], ["Germany", 2, 52, 1556787.07, 62989, 4385310.13, 1817883.39, 506329.0, 504310.66], ["Germany", 2, 53, 1572224.55, 62017, 4372993.59, 1785053.78, 512821.0, 502894.26], ["Germany", 2, 54, 1632414.72, 65090, 4531582.28, 1871706.59, 506329.0, 521131.96], ["Germany", 2, 55, 1653679.87, 65190, 4481812.5, 1875224.19, 437500.0, 515408.44], ["Germany", 2, 56, 1650554.52, 63252, 4403620.25, 1803611.41, 443038.0, 506416.33], ["Germany", 2, 57, 1637982.11, 62809, 4372778.48, 1788888.84, 443038.0, 502869.53], ["Germany", 2, 58, 1634931.2, 62729, 4367208.86, 1787010.64, 443038.0, 502229.02], ["Germany", 2, 59, 1671747.47, 61996, 4371512.82, 1748323.38, 448718.0, 502723.97], ["Germany", 2, 60, 1672321.47, 63228, 4401949.37, 1780365.72, 443038.0, 506224.18], ["Japan", 1, 1, 689486.82, 48349, 2389663.22, 1347175.7, 137931.0, 215069.69], ["Japan", 1, 2, 758605.48, 46345, 2132923.3, 1028945.72, 153409.0, 191963.1], ["Japan", 1, 3, 798009.01, 43155, 1963794.94, 887920.39, 101124.0, 176741.54], ["Japan", 1, 4, 926130.68, 53140, 2308841.38, 1071466.98, 103448.0, 207795.72], ["Japan", 1, 5, 892439.66, 52951, 2300629.66, 1063202.32, 137931.0, 207056.67], ["Japan", 1, 6, 610004.44, 39420, 1693268.18, 794505.6, 136364.0, 152394.14], ["Japan", 1, 7, 605705.42, 39834, 1771441.41, 829835.26, 176471.0, 159429.73], ["Japan", 1, 8, 987870.33, 65978, 2761869.77, 1351012.15, 174419.0, 248568.28], ["Japan", 1, 9, 1005025.12, 71082, 2794257.93, 1365335.6, 172414.0, 251483.21], ["Japan", 1, 10, 1140350.66, 69476, 2731125.52, 1253019.56, 91954.0, 245801.3], ["Japan", 1, 11, 850684.93, 56244, 2236680.0, 1010274.87, 174419.0, 201301.2], ["Japan", 1, 12, 951455.06, 60924, 2367728.18, 1112268.58, 90909.0, 213095.54], ["Japan", 1, 13, 1005226.86, 79255, 2918025.0, 1479720.89, 170455.0, 262622.25], ["Japan", 1, 14, 1089819.43, 58118, 2527153.48, 1097530.24, 112360.0, 227443.81], ["Japan", 1, 15, 955851.8, 49187, 2213415.0, 944719.85, 113636.0, 199207.35], ["Japan", 1, 16, 792217.02, 46863, 2085140.22, 992900.58, 112360.0, 187662.62], ["Japan", 1, 17, 745922.66, 47605, 2118155.06, 1013059.44, 168539.0, 190633.96], ["Japan", 1, 18, 887898.67, 50349, 2215356.0, 961408.29, 166667.0, 199382.04], ["Japan", 1, 19, 1072549.33, 52561, 2455602.67, 993510.1, 168539.0, 221004.24], ["Japan", 1, 20, 1109407.01, 54733, 2557076.56, 1048993.66, 168539.0, 230136.89], ["Japan", 1, 21, 1096755.35, 56770, 2622774.0, 1123301.99, 166667.0, 236049.66], ["Japan", 1, 22, 1163093.79, 57828, 2701672.18, 1126888.89, 168539.0, 243150.5], ["Japan", 1, 23, 1267525.91, 52858, 2716426.07, 1002174.81, 202247.0, 244478.35], ["Japan", 1, 24, 1114271.65, 55861, 2639432.25, 1083066.7, 204545.0, 237548.9], ["Japan", 1, 25, 1037509.48, 45526, 2339627.18, 889304.26, 202247.0, 210566.45], ["Japan", 1, 26, 1050653.7, 49146, 2426645.18, 953048.42, 204545.0, 218398.07], ["Japan", 1, 27, 837426.43, 45406, 2129879.11, 896218.56, 204545.0, 191689.12], ["Japan", 1, 28, 624356.71, 42122, 1855952.95, 862313.47, 202247.0, 167035.77], ["Japan", 1, 29, 462435.92, 52455, 1891496.8, 1051929.17, 206897.0, 170234.71], ["Japan", 1, 30, 637547.9, 55940, 2093953.64, 1063404.91, 204545.0, 188455.83], ["Japan", 1, 31, 817286.8, 58201, 2313810.38, 1081383.64, 206897.0, 208242.93], ["Japan", 1, 32, 818172.19, 63246, 2485804.46, 1239364.87, 204545.0, 223722.4], ["Japan", 1, 33, 773005.99, 57368, 2280694.04, 1187482.59, 114943.0, 205262.46], ["Japan", 1, 34, 1010556.96, 64972, 2681324.85, 1315812.66, 113636.0, 241319.24], ["Japan", 1, 35, 846160.63, 56896, 2321654.54, 1154185.0, 112360.0, 208948.91], ["Japan", 1, 36, 919158.46, 56791, 2343703.75, 1099975.95, 113636.0, 210933.34], ["Japan", 1, 37, 1132680.66, 60513, 2622172.03, 1139859.9, 113636.0, 235995.48], ["Japan", 1, 38, 956621.06, 61045, 2615503.23, 1311126.88, 112360.0, 235395.29], ["Japan", 1, 39, 909810.62, 62405, 2673773.1, 1410962.9, 112360.0, 240639.58], ["Japan", 1, 40, 894867.46, 62561, 2680457.0, 1431988.41, 112360.0, 241241.13], ["Japan", 1, 41, 957653.18, 62040, 2733743.66, 1396720.54, 133333.0, 246036.93], ["Japan", 1, 42, 996604.92, 64636, 2848134.35, 1461864.34, 133333.0, 256332.09], ["Japan", 1, 43, 1021470.57, 64736, 2884591.79, 1468676.96, 134831.0, 259613.26], ["Japan", 1, 44, 1077665.79, 61804, 2859511.73, 1391156.88, 133333.0, 257356.06], ["Japan", 1, 45, 1066200.66, 62048, 2870800.98, 1412895.23, 133333.0, 258372.09], ["Japan", 1, 46, 1082074.03, 63260, 2949764.04, 1467380.25, 134831.0, 265478.76], ["Japan", 1, 47, 1138718.64, 67756, 3124304.44, 1571065.41, 133333.0, 281187.4], ["Japan", 1, 48, 1160230.27, 66259, 3089605.06, 1516479.34, 134831.0, 278064.46], ["Japan", 1, 49, 1086104.5, 59520, 2744533.33, 1278087.84, 133333.0, 247008.0], ["Japan", 1, 50, 1180310.31, 60032, 2799244.94, 1232171.59, 134831.0, 251932.04], ["Japan", 1, 51, 1215581.12, 61964, 2816545.45, 1211111.24, 136364.0, 253489.09], ["Japan", 1, 52, 1300525.51, 65222, 2931325.84, 1232150.01, 134831.0, 263819.33], ["Japan", 1, 53, 1246810.39, 64760, 2910561.8, 1266969.85, 134831.0, 261950.56], ["Japan", 1, 54, 1179134.24, 66129, 2939066.67, 1362083.42, 133333.0, 264516.0], ["Japan", 1, 55, 1187542.01, 66627, 2961200.0, 1351593.99, 155556.0, 266508.0], ["Japan", 1, 56, 1232710.79, 69056, 3035428.57, 1375683.21, 153846.0, 273188.57], ["Japan", 1, 57, 1311835.16, 70030, 3112444.44, 1364933.29, 155556.0, 280120.0], ["Japan", 1, 58, 1343469.99, 70710, 3108131.87, 1331084.01, 153846.0, 279731.87], ["Japan", 1, 59, 1336035.06, 70994, 3120615.38, 1349878.94, 153846.0, 280855.38], ["Japan", 1, 60, 1328373.37, 70439, 3130622.22, 1364936.85, 155556.0, 281756.0], ["Japan", 2, 1, 1272075.24, 44752, 3189222.99, 1457703.68, 172414.0, 287030.07], ["Japan", 2, 2, 973887.66, 40146, 2668796.59, 1250172.24, 204545.0, 240191.69], ["Japan", 2, 3, 1020143.8, 37748, 2672049.44, 1152994.19, 258427.0, 240484.45], ["Japan", 2, 4, 1244750.78, 49149, 3304846.55, 1498291.58, 264368.0, 297436.19], ["Japan", 2, 5, 1230404.15, 49312, 3315806.9, 1522612.13, 264368.0, 298422.62], ["Japan", 2, 6, 814522.77, 38566, 2563762.5, 1257137.11, 261364.0, 230738.63], ["Japan", 2, 7, 972184.77, 40648, 2797538.82, 1279457.56, 294118.0, 251778.49], ["Japan", 2, 8, 1354098.56, 48745, 3570854.65, 1604681.17, 290698.0, 321376.92], ["Japan", 2, 9, 895474.17, 49302, 3060124.14, 1601882.8, 287356.0, 275411.17], ["Japan", 2, 10, 1104701.16, 50760, 3150620.69, 1589949.67, 172414.0, 283555.86], ["Japan", 2, 11, 861347.36, 44405, 2788220.93, 1385235.69, 290698.0, 250939.88], ["Japan", 2, 12, 1080993.28, 50538, 3101195.45, 1570639.59, 170455.0, 279107.59], ["Japan", 2, 13, 1499237.4, 53378, 3657606.14, 1658729.18, 170455.0, 329184.55], ["Japan", 2, 14, 1427418.15, 52322, 3544962.47, 1629958.69, 168539.0, 319046.62], ["Japan", 2, 15, 911497.15, 37414, 2563709.32, 1160114.33, 261364.0, 230733.84], ["Japan", 2, 16, 861246.61, 37383, 2532803.26, 1185177.35, 258427.0, 227952.29], ["Japan", 2, 17, 994340.9, 41780, 2830712.36, 1356888.34, 224719.0, 254764.11], ["Japan", 2, 18, 1092370.89, 44099, 2954633.0, 1374123.14, 222222.0, 265916.97], ["Japan", 2, 19, 1310482.95, 45191, 3214908.05, 1390364.37, 224719.0, 289341.72], ["Japan", 2, 20, 1422083.35, 47395, 3371701.6, 1421446.11, 224719.0, 303453.14], ["Japan", 2, 21, 1453606.63, 48510, 3412678.5, 1429708.81, 222222.0, 307141.06], ["Japan", 2, 22, 1505557.09, 48798, 3471511.65, 1428799.51, 224719.0, 312436.05], ["Japan", 2, 23, 1784088.97, 48940, 3829774.96, 1431343.24, 269663.0, 344679.75], ["Japan", 2, 24, 1677105.67, 53681, 3862286.95, 1564848.46, 272727.0, 347605.83], ["Japan", 2, 25, 1782597.57, 48591, 3802464.14, 1407981.79, 269663.0, 342221.77], ["Japan", 2, 26, 1819071.49, 52846, 3973309.08, 1523912.78, 272727.0, 357597.82], ["Japan", 2, 27, 1577339.39, 50710, 3622075.06, 1446021.91, 272727.0, 325986.75], ["Japan", 2, 28, 1324945.47, 48670, 3265438.07, 1376940.17, 269663.0, 293889.43], ["Japan", 2, 29, 859066.02, 56991, 3129299.45, 1712734.48, 275862.0, 281636.95], ["Japan", 2, 30, 1051343.39, 56492, 3219983.72, 1606114.8, 272727.0, 289798.54], ["Japan", 2, 31, 1222764.91, 55256, 3345021.3, 1545342.48, 275862.0, 301051.92], ["Japan", 2, 32, 1256224.63, 58062, 3474945.65, 1633248.91, 272727.0, 312745.11], ["Japan", 2, 33, 1276579.35, 54189, 3280428.54, 1536196.62, 172414.0, 295238.57], ["Japan", 2, 34, 1456780.76, 56708, 3563605.78, 1615645.5, 170455.0, 320724.52], ["Japan", 2, 35, 1265478.22, 52011, 3231716.04, 1506844.37, 168539.0, 290854.44], ["Japan", 2, 36, 1334021.7, 52812, 3318775.99, 1515609.45, 170455.0, 298689.84], ["Japan", 2, 37, 1541902.45, 53318, 3551608.12, 1519605.93, 170455.0, 319644.73], ["Japan", 2, 38, 1868496.08, 54279, 3574997.09, 1537962.01, 168539.0, 0.0], ["Japan", 2, 39, 1926972.77, 56088, 3694143.9, 1598632.13, 168539.0, 0.0], ["Japan", 2, 40, 2036588.85, 58930, 3881327.56, 1676199.71, 168539.0, 0.0], ["Japan", 2, 41, 2166877.63, 59803, 4050864.0, 1695097.37, 188889.0, 0.0], ["Japan", 2, 42, 2184748.17, 60435, 4093673.65, 1720036.49, 188889.0, 0.0], ["Japan", 2, 43, 2234959.08, 61053, 4182001.68, 1756031.61, 191011.0, 0.0], ["Japan", 2, 44, 2205483.57, 56205, 3997504.33, 1603131.76, 188889.0, 0.0], ["Japan", 2, 45, 2169097.15, 55015, 3912867.19, 1554881.04, 188889.0, 0.0], ["Japan", 2, 46, 2182724.79, 54666, 3931038.2, 1557302.41, 191011.0, 0.0], ["Japan", 2, 47, 2260821.49, 57251, 4071182.22, 1621471.74, 188889.0, 0.0], ["Japan", 2, 48, 2220965.12, 55304, 3976916.85, 1564940.74, 191011.0, 0.0], ["Japan", 2, 49, 1589612.82, 51451, 3658737.78, 1550949.56, 188889.0, 329286.4], ["Japan", 2, 50, 1684332.02, 52416, 3769240.45, 1554665.79, 191011.0, 339231.64], ["Japan", 2, 51, 1673078.5, 54951, 3809103.41, 1600023.61, 193182.0, 342819.31], ["Japan", 2, 52, 1747981.44, 58385, 4001668.54, 1702525.93, 191011.0, 360150.17], ["Japan", 2, 53, 1749483.16, 58295, 3995500.0, 1695410.84, 191011.0, 359595.0], ["Japan", 2, 54, 1802821.14, 61054, 4138104.44, 1773964.91, 188889.0, 372429.4], ["Japan", 2, 55, 1797882.41, 60921, 4129090.0, 1770700.49, 188889.0, 371618.1], ["Japan", 2, 56, 1798215.77, 61675, 4134258.24, 1777146.23, 186813.0, 372083.24], ["Japan", 2, 57, 1829434.79, 61354, 4158437.78, 1765854.59, 188889.0, 374259.4], ["Japan", 2, 58, 1816335.43, 62186, 4168512.09, 1790197.57, 186813.0, 375166.09], ["Japan", 2, 59, 1835040.7, 62212, 4170254.95, 1773078.3, 186813.0, 375322.95], ["Japan", 2, 60, 1869615.89, 61966, 4199917.78, 1763420.29, 188889.0, 377992.6], ["Mexico", 1, 1, -56363.65, 27240, 957656.25, 791691.62, 156250.0, 66078.28], ["Mexico", 1, 2, 111995.09, 26121, 844851.09, 611280.27, 63281.0, 58294.73], ["Mexico", 1, 3, 120756.11, 25137, 769192.2, 547361.83, 48000.0, 53074.26], ["Mexico", 1, 4, 167826.06, 26950, 851931.82, 575735.47, 49587.0, 58783.3], ["Mexico", 1, 5, 146683.23, 25409, 809911.88, 540677.72, 66667.0, 55883.92], ["Mexico", 1, 6, 82058.61, 19363, 602142.07, 413494.66, 65041.0, 41547.8], ["Mexico", 1, 7, 85770.76, 19944, 635715.0, 439412.9, 66667.0, 43864.34], ["Mexico", 1, 8, 154739.8, 26522, 855334.5, 574909.61, 66667.0, 59018.08], ["Mexico", 1, 9, 178515.11, 26065, 832398.39, 531931.79, 64516.0, 57435.49], ["Mexico", 1, 10, 219527.79, 22971, 745616.07, 441853.76, 32787.0, 51447.51], ["Mexico", 1, 11, 130041.79, 20806, 636663.6, 398692.02, 64000.0, 43929.79], ["Mexico", 1, 12, 153741.9, 20565, 629289.0, 400126.16, 32000.0, 43420.94], ["Mexico", 1, 13, 153918.56, 26551, 799665.94, 527578.43, 62992.0, 55176.95], ["Mexico", 1, 14, 225408.72, 30629, 937247.4, 615168.61, 32000.0, 64670.07], ["Mexico", 1, 15, 124942.46, 19419, 594221.4, 396277.67, 32000.0, 41001.28], ["Mexico", 1, 16, 77928.15, 16825, 523216.46, 376666.37, 32520.0, 36101.94], ["Mexico", 1, 17, 47946.52, 19955, 601006.89, 448598.9, 62992.0, 41469.48], ["Mexico", 1, 18, 109770.46, 22595, 677850.0, 458562.89, 62745.0, 46771.65], ["Mexico", 1, 19, 163517.15, 25388, 790422.91, 510350.58, 62016.0, 54539.18], ["Mexico", 1, 20, 182484.64, 25817, 829500.21, 525780.05, 64000.0, 57235.51], ["Mexico", 1, 21, 159962.9, 27047, 848652.45, 567632.53, 62500.0, 58557.02], ["Mexico", 1, 22, 187974.63, 27311, 877502.43, 564980.13, 64000.0, 60547.67], ["Mexico", 1, 23, 219016.46, 25028, 857136.24, 504558.39, 74419.0, 59142.4], ["Mexico", 1, 24, 154549.86, 27942, 863246.6, 575286.72, 73846.0, 59564.02], ["Mexico", 1, 25, 167827.15, 21726, 744052.34, 450466.58, 74419.0, 51339.61], ["Mexico", 1, 26, 162959.69, 25020, 807757.47, 515216.52, 73846.0, 55735.27], ["Mexico", 1, 27, 108506.57, 23943, 734337.74, 501315.86, 73846.0, 50669.3], ["Mexico", 1, 28, 52418.93, 21676, 641436.12, 469758.1, 75000.0, 44259.09], ["Mexico", 1, 29, -52676.31, 28395, 672211.8, 603505.49, 75000.0, 46382.61], ["Mexico", 1, 30, 7135.51, 29624, 730663.67, 598693.37, 74419.0, 50415.79], ["Mexico", 1, 31, 66385.41, 30141, 792878.72, 596193.67, 75591.0, 54708.63], ["Mexico", 1, 32, 43231.77, 32161, 846016.14, 668818.25, 75591.0, 58375.11], ["Mexico", 1, 33, 26428.68, 27290, 712272.85, 597634.34, 39063.0, 49146.83], ["Mexico", 1, 34, 90776.66, 29204, 813043.76, 626484.08, 39683.0, 56100.02], ["Mexico", 1, 35, 57105.09, 23873, 654243.1, 512932.23, 39063.0, 45142.77], ["Mexico", 1, 36, 76083.61, 24190, 657791.54, 497560.31, 38760.0, 45387.62], ["Mexico", 1, 37, 135522.83, 25113, 728326.81, 503179.43, 39370.0, 50254.55], ["Mexico", 1, 38, 102608.5, 25245, 726435.11, 534639.59, 39063.0, 50124.02], ["Mexico", 1, 39, 84152.96, 25245, 737965.83, 563210.23, 39683.0, 50919.64], ["Mexico", 1, 40, 72440.64, 25346, 735084.28, 572552.82, 39370.0, 50720.81], ["Mexico", 1, 41, 103977.03, 25542, 776513.69, 567370.22, 51587.0, 53579.44], ["Mexico", 1, 42, 104213.41, 27954, 836563.19, 623845.93, 50781.0, 57722.86], ["Mexico", 1, 43, 97303.74, 29194, 860230.85, 653571.18, 50000.0, 59355.93], ["Mexico", 1, 44, 129656.82, 27240, 842786.97, 604977.85, 50000.0, 58152.3], ["Mexico", 1, 45, 127032.19, 27059, 843676.77, 608042.89, 50388.0, 58213.7], ["Mexico", 1, 46, 117544.2, 28119, 871906.98, 643813.2, 50388.0, 60161.58], ["Mexico", 1, 47, 121654.24, 29806, 917107.69, 682173.02, 50000.0, 63280.43], ["Mexico", 1, 48, 138580.73, 29103, 909468.75, 657353.68, 50781.0, 62753.34], ["Mexico", 1, 49, 116306.09, 26024, 813250.0, 590048.66, 50781.0, 56114.25], ["Mexico", 1, 50, 138075.66, 27175, 836153.85, 590383.57, 50000.0, 57694.62], ["Mexico", 1, 51, 113264.22, 33658, 924952.67, 698248.71, 49618.0, 63821.73], ["Mexico", 1, 52, 148099.79, 34816, 964135.38, 699510.25, 50000.0, 66525.34], ["Mexico", 1, 53, 113668.64, 35210, 960272.73, 731103.27, 49242.0, 66258.82], ["Mexico", 1, 54, 89900.12, 35114, 972387.69, 765392.82, 50000.0, 67094.75], ["Mexico", 1, 55, 101441.39, 34360, 951507.69, 738258.28, 46154.0, 65654.03], ["Mexico", 1, 56, 108778.73, 31952, 891683.72, 674866.81, 46512.0, 61526.18], ["Mexico", 1, 57, 118982.82, 32438, 898283.08, 671164.73, 46154.0, 61981.53], ["Mexico", 1, 58, 138783.46, 32124, 889587.69, 643268.68, 46154.0, 61381.55], ["Mexico", 1, 59, 138102.77, 32010, 893302.33, 647049.7, 46512.0, 61637.86], ["Mexico", 1, 60, 132200.65, 31939, 898284.38, 657227.1, 46875.0, 61981.62], ["Mexico", 2, 1, 241701.25, 25312, 1285375.0, 809298.75, 234375.0, 0.0], ["Mexico", 2, 2, 214588.18, 25669, 1082910.94, 783947.76, 84375.0, 0.0], ["Mexico", 2, 3, 203526.73, 24407, 1054382.4, 730855.67, 120000.0, 0.0], ["Mexico", 2, 4, 222089.23, 31390, 1284136.36, 938080.13, 123967.0, 0.0], ["Mexico", 2, 5, 226681.07, 32050, 1322062.5, 970381.43, 125000.0, 0.0], ["Mexico", 2, 6, 91708.94, 25908, 1042639.02, 828979.09, 121951.0, 0.0], ["Mexico", 2, 7, 156754.1, 27161, 1120391.25, 838637.15, 125000.0, 0.0], ["Mexico", 2, 8, 239882.18, 28776, 1294920.0, 930037.82, 125000.0, 0.0], ["Mexico", 2, 9, 11743.72, 30168, 1094806.45, 962094.73, 120968.0, 0.0], ["Mexico", 2, 10, 101636.55, 25804, 951786.89, 792773.34, 57377.0, 0.0], ["Mexico", 2, 11, 9492.08, 23960, 862560.0, 733067.92, 120000.0, 0.0], ["Mexico", 2, 12, 74276.91, 23594, 849384.0, 719107.09, 56000.0, 0.0], ["Mexico", 2, 13, 104202.86, 33138, 1350308.27, 1009885.41, 236220.0, 0.0], ["Mexico", 2, 14, 253588.96, 28540, 1181556.0, 871967.04, 56000.0, 0.0], ["Mexico", 2, 15, 50710.96, 24803, 892908.0, 754197.04, 88000.0, 0.0], ["Mexico", 2, 16, 21875.35, 20305, 742865.85, 631559.51, 89431.0, 0.0], ["Mexico", 2, 17, 4653.82, 23451, 830940.94, 747547.12, 78740.0, 0.0], ["Mexico", 2, 18, 38692.02, 24740, 873176.47, 756053.45, 78431.0, 0.0], ["Mexico", 2, 19, 89594.96, 25863, 947307.56, 780193.6, 77519.0, 0.0], ["Mexico", 2, 20, 143296.71, 26556, 1003816.8, 780520.09, 80000.0, 0.0], ["Mexico", 2, 21, 141274.17, 27283, 1007126.37, 787727.2, 78125.0, 0.0], ["Mexico", 2, 22, 167802.82, 27171, 1027063.8, 779260.98, 80000.0, 0.0], ["Mexico", 2, 23, 237358.14, 28374, 1143208.26, 812827.11, 93023.0, 0.0], ["Mexico", 2, 24, 161981.59, 32621, 1185647.88, 931358.3, 92308.0, 0.0], ["Mexico", 2, 25, 253594.01, 29092, 1172136.98, 825519.97, 93023.0, 0.0], ["Mexico", 2, 26, 233112.17, 33394, 1268361.92, 942941.75, 92308.0, 0.0], ["Mexico", 2, 27, 170134.44, 32134, 1159479.69, 897037.25, 92308.0, 0.0], ["Mexico", 2, 28, 117140.69, 29608, 1030776.28, 819885.59, 93750.0, 0.0], ["Mexico", 2, 29, -137725.2, 27460, 764796.45, 808771.65, 93750.0, 0.0], ["Mexico", 2, 30, -59535.48, 28228, 819096.36, 785608.85, 93023.0, 0.0], ["Mexico", 2, 31, 7727.82, 28545, 883405.76, 781189.94, 94488.0, 0.0], ["Mexico", 2, 32, 3381.75, 28630, 886036.32, 788166.57, 94488.0, 0.0], ["Mexico", 2, 33, 26793.48, 22270, 683823.7, 617967.21, 39063.0, 0.0], ["Mexico", 2, 34, 64165.59, 21357, 699508.35, 595659.75, 39683.0, 0.0], ["Mexico", 2, 35, 22929.64, 16020, 516506.44, 454513.8, 39063.0, 0.0], ["Mexico", 2, 36, 23177.17, 15909, 508951.47, 447014.3, 38760.0, 0.0], ["Mexico", 2, 37, 76461.06, 17700, 609675.31, 493844.25, 39370.0, 0.0], ["Mexico", 2, 38, 11227.79, 17442, 596094.86, 504673.52, 39063.0, 41130.55], ["Mexico", 2, 39, 14521.72, 16831, 584343.8, 489819.35, 39683.0, 40319.72], ["Mexico", 2, 40, 11378.1, 16780, 577985.97, 487356.84, 39370.0, 39881.03], ["Mexico", 2, 41, 30619.65, 16750, 604792.88, 484823.52, 47619.0, 41730.71], ["Mexico", 2, 42, 20296.34, 16670, 592499.56, 484445.75, 46875.0, 40882.47], ["Mexico", 2, 43, 8783.16, 17067, 597277.62, 501128.3, 46154.0, 41212.16], ["Mexico", 2, 44, 32828.69, 15525, 570479.39, 452133.62, 46154.0, 39363.08], ["Mexico", 2, 45, 39362.78, 15300, 566569.8, 441601.7, 46512.0, 39093.32], ["Mexico", 2, 46, 37761.64, 16227, 597505.81, 472004.27, 46512.0, 41227.9], ["Mexico", 2, 47, 40285.25, 16965, 619875.0, 490664.37, 46154.0, 42771.37], ["Mexico", 2, 48, 45576.58, 16358, 607035.16, 472698.15, 46875.0, 41885.43], ["Mexico", 2, 49, 66473.92, 14983, 556009.77, 442660.84, 46875.0, 0.0], ["Mexico", 2, 50, 78778.87, 16706, 610411.54, 485478.67, 46154.0, 0.0], ["Mexico", 2, 51, 64242.21, 18863, 647965.65, 537921.44, 45802.0, 0.0], ["Mexico", 2, 52, 72882.3, 19659, 680503.85, 561467.55, 46154.0, 0.0], ["Mexico", 2, 53, 71626.32, 20879, 711784.09, 594702.77, 45455.0, 0.0], ["Mexico", 2, 54, 82374.59, 20866, 722284.62, 593756.02, 46154.0, 0.0], ["Mexico", 2, 55, 75511.75, 22285, 771403.85, 634354.09, 61538.0, 0.0], ["Mexico", 2, 56, 93699.12, 23349, 814500.0, 658784.88, 62016.0, 0.0], ["Mexico", 2, 57, 97451.96, 24711, 855380.77, 696390.81, 61538.0, 0.0], ["Mexico", 2, 58, 95680.94, 24460, 846692.31, 689473.37, 61538.0, 0.0], ["Mexico", 2, 59, 105230.14, 23950, 835465.12, 668218.98, 62016.0, 0.0], ["Mexico", 2, 60, 113150.14, 24067, 846105.47, 670455.33, 62500.0, 0.0], ["UK", 1, 1, 321933.42, 30636, 1696763.08, 872009.9, 307692.0, 195127.75], ["UK", 1, 2, 500472.14, 28325, 1456714.29, 645863.0, 142857.0, 167522.14], ["UK", 1, 3, 507065.11, 27134, 1356700.0, 574566.39, 119048.0, 156020.5], ["UK", 1, 4, 542620.71, 34614, 1557630.0, 718693.84, 117188.0, 179127.45], ["UK", 1, 5, 508123.54, 37378, 1656132.92, 772939.09, 184615.0, 190455.29], ["UK", 1, 6, 353976.17, 27634, 1263268.57, 573540.52, 190476.0, 145275.89], ["UK", 1, 7, 347526.61, 30782, 1407177.14, 659730.16, 238095.0, 161825.37], ["UK", 1, 8, 672819.6, 36330, 1890295.31, 765716.75, 234375.0, 217383.96], ["UK", 1, 9, 683737.91, 35819, 1835034.92, 709499.0, 230769.0, 211029.02], ["UK", 1, 10, 752149.78, 36808, 1885702.15, 685927.62, 230769.0, 216855.75], ["UK", 1, 11, 545532.55, 31201, 1535674.22, 579164.13, 234375.0, 176602.54], ["UK", 1, 12, 615865.66, 34420, 1694109.38, 649046.14, 234375.0, 194822.58], ["UK", 1, 13, 699972.39, 39408, 1909772.31, 759407.1, 230769.0, 219623.82], ["UK", 1, 14, 731019.58, 35927, 1796350.0, 700020.17, 158730.0, 206580.25], ["UK", 1, 15, 596258.7, 28033, 1474967.08, 555241.16, 153846.0, 169621.21], ["UK", 1, 16, 479932.87, 25579, 1345848.92, 557297.42, 153846.0, 154772.63], ["UK", 1, 17, 331894.75, 31161, 1402245.0, 681819.07, 227273.0, 161258.18], ["UK", 1, 18, 436816.83, 33820, 1499185.07, 666080.96, 223881.0, 172406.28], ["UK", 1, 19, 571017.32, 36648, 1705772.96, 714710.74, 223881.0, 196163.89], ["UK", 1, 20, 583747.1, 37693, 1754412.25, 745026.74, 223881.0, 201757.41], ["UK", 1, 21, 568281.95, 39054, 1791027.93, 796189.77, 220588.0, 205968.21], ["UK", 1, 22, 609669.64, 39495, 1838285.93, 793332.42, 223881.0, 211402.88], ["UK", 1, 23, 676937.09, 34201, 1777596.98, 668963.24, 227273.0, 204423.65], ["UK", 1, 24, 550904.48, 35651, 1684509.75, 712613.65, 227273.0, 193718.62], ["UK", 1, 25, 476552.97, 27820, 1424363.24, 560127.5, 223881.0, 163801.77], ["UK", 1, 26, 498275.74, 30095, 1442273.0, 601664.86, 176471.0, 165861.4], ["UK", 1, 27, 409608.26, 28640, 1323377.83, 582477.12, 179104.0, 152188.45], ["UK", 1, 28, 293070.96, 26561, 1165947.16, 559688.28, 179104.0, 134083.92], ["UK", 1, 29, 185264.11, 34951, 1227394.12, 721875.69, 179104.0, 141150.32], ["UK", 1, 30, 306224.99, 36104, 1351449.81, 707990.09, 181818.0, 155416.73], ["UK", 1, 31, 397470.63, 38223, 1479884.43, 733123.09, 179104.0, 170186.71], ["UK", 1, 32, 406729.65, 40345, 1585709.47, 814805.23, 181818.0, 182356.59], ["UK", 1, 33, 276601.1, 41677, 1663263.01, 887694.66, 307692.0, 191275.25], ["UK", 1, 34, 511389.23, 49005, 2085583.36, 1021852.04, 312500.0, 239842.09], ["UK", 1, 35, 484410.37, 47496, 2021362.46, 991995.4, 312500.0, 232456.68], ["UK", 1, 36, 536848.22, 49342, 2067619.05, 985302.64, 307692.0, 237776.19], ["UK", 1, 37, 741084.24, 51042, 2317093.54, 992083.54, 317460.0, 266465.76], ["UK", 1, 38, 920223.58, 52428, 2306781.01, 1078865.42, 307692.0, 0.0], ["UK", 1, 39, 885607.79, 53537, 2355575.93, 1162276.13, 307692.0, 0.0], ["UK", 1, 40, 861737.48, 54574, 2364821.06, 1200053.58, 303030.0, 0.0], ["UK", 1, 41, 902308.56, 52714, 2340135.16, 1139319.6, 298507.0, 0.0], ["UK", 1, 42, 907774.72, 53196, 2361532.61, 1155250.89, 298507.0, 0.0], ["UK", 1, 43, 886809.38, 52434, 2327705.1, 1142388.73, 298507.0, 0.0], ["UK", 1, 44, 930709.11, 50367, 2313216.29, 1088389.18, 294118.0, 0.0], ["UK", 1, 45, 931081.13, 49697, 2316511.4, 1086923.26, 298507.0, 0.0], ["UK", 1, 46, 940473.95, 50398, 2367178.79, 1123674.84, 303030.0, 0.0], ["UK", 1, 47, 1001790.6, 52864, 2483006.06, 1178185.46, 303030.0, 0.0], ["UK", 1, 48, 992225.32, 53157, 2459502.99, 1168770.66, 298507.0, 0.0], ["UK", 1, 49, 598960.81, 48876, 2228170.59, 1078852.16, 294118.0, 256239.62], ["UK", 1, 50, 671091.49, 48914, 2263185.07, 1033320.3, 298507.0, 260266.28], ["UK", 1, 51, 687021.32, 50588, 2265134.33, 1019115.56, 298507.0, 260490.45], ["UK", 1, 52, 755169.79, 52330, 2343134.33, 1019997.09, 298507.0, 269460.45], ["UK", 1, 53, 724085.07, 51194, 2327000.0, 1032279.93, 303030.0, 267605.0], ["UK", 1, 54, 669225.86, 52510, 2351194.03, 1113073.85, 298507.0, 270387.31], ["UK", 1, 55, 722128.03, 51917, 2290455.88, 1084337.43, 220588.0, 263402.43], ["UK", 1, 56, 739614.2, 50430, 2258059.7, 1034887.64, 223881.0, 259676.87], ["UK", 1, 57, 747672.36, 49731, 2226761.19, 999130.29, 223881.0, 256077.54], ["UK", 1, 58, 765709.18, 48984, 2193313.43, 951492.21, 223881.0, 252231.04], ["UK", 1, 59, 770946.01, 48426, 2201181.82, 949826.9, 227273.0, 253135.91], ["UK", 1, 60, 744652.29, 49291, 2207059.7, 984714.54, 223881.0, 253811.87], ["UK", 2, 1, 664457.15, 32023, 2266243.08, 1033475.97, 307692.0, 260617.95], ["UK", 2, 2, 538643.02, 32460, 1901228.57, 1001087.26, 142857.0, 218641.29], ["UK", 2, 3, 481357.47, 28968, 1820845.71, 876122.98, 253968.0, 209397.26], ["UK", 2, 4, 718292.1, 39402, 2437998.75, 1189336.79, 250000.0, 280369.86], ["UK", 2, 5, 751319.52, 42737, 2603669.54, 1306774.02, 246154.0, 299422.0], ["UK", 2, 6, 513779.66, 32906, 2068377.14, 1062766.11, 253968.0, 237863.37], ["UK", 2, 7, 578771.08, 34056, 2140662.86, 1061747.55, 253968.0, 246176.23], ["UK", 2, 8, 695168.88, 38377, 2482512.19, 1251854.41, 250000.0, 285488.9], ["UK", 2, 9, 553168.08, 33062, 2105795.08, 1064306.56, 246154.0, 242166.43], ["UK", 2, 10, 614276.85, 33949, 2162290.15, 1053195.94, 246154.0, 248663.37], ["UK", 2, 11, 519189.86, 29188, 1888098.75, 901777.53, 250000.0, 217131.36], ["UK", 2, 12, 612526.55, 32585, 2107842.19, 1002913.78, 250000.0, 242401.85], ["UK", 2, 13, 638153.72, 43157, 2569501.38, 1328163.01, 307692.0, 295492.66], ["UK", 2, 14, 724570.93, 41619, 2556595.71, 1284048.28, 253968.0, 294008.51], ["UK", 2, 15, 442847.98, 31341, 1865994.92, 962403.53, 246154.0, 214589.42], ["UK", 2, 16, 388885.16, 29831, 1776091.85, 936802.13, 246154.0, 204250.56], ["UK", 2, 17, 489123.45, 32493, 1905271.36, 1045526.7, 151515.0, 219106.21], ["UK", 2, 18, 534760.59, 33764, 1950248.96, 1041955.74, 149254.0, 224278.63], ["UK", 2, 19, 630842.88, 33613, 2038603.37, 1024067.1, 149254.0, 234439.39], ["UK", 2, 20, 685670.06, 34813, 2111382.47, 1033649.43, 149254.0, 242808.98], ["UK", 2, 21, 696998.19, 35595, 2127062.98, 1038393.55, 147059.0, 244612.24], ["UK", 2, 22, 729853.02, 35599, 2159052.78, 1031654.7, 149254.0, 248291.07], ["UK", 2, 23, 896092.69, 33805, 2289443.62, 978549.92, 151515.0, 263286.02], ["UK", 2, 24, 797719.07, 37026, 2279623.5, 1068232.73, 151515.0, 262156.7], ["UK", 2, 25, 785073.26, 30769, 2052728.58, 882337.53, 149254.0, 236063.79], ["UK", 2, 26, 747069.62, 34553, 2157711.63, 986034.17, 176471.0, 248136.84], ["UK", 2, 27, 661566.0, 33533, 2019006.73, 946150.96, 179104.0, 232185.77], ["UK", 2, 28, 552789.73, 32342, 1849932.3, 905296.35, 179104.0, 212742.21], ["UK", 2, 29, 249321.88, 39875, 1824650.31, 1186389.65, 179104.0, 209834.79], ["UK", 2, 30, 395263.87, 38382, 1872089.97, 1079717.76, 181818.0, 215290.35], ["UK", 2, 31, 464795.32, 37919, 1912997.59, 1049103.55, 179104.0, 219994.72], ["UK", 2, 32, 496759.24, 38787, 1986436.13, 1079418.73, 181818.0, 228440.15], ["UK", 2, 33, 369757.08, 41973, 2182674.65, 1177294.99, 384615.0, 251007.58], ["UK", 2, 34, 579793.12, 46460, 2576445.03, 1309735.73, 390625.0, 296291.18], ["UK", 2, 35, 570830.52, 47116, 2612823.59, 1350893.36, 390625.0, 300474.71], ["UK", 2, 36, 600015.88, 49418, 2698320.03, 1403382.35, 384615.0, 310306.8], ["UK", 2, 37, 787038.87, 48032, 2868254.18, 1354541.08, 396825.0, 329849.23], ["UK", 2, 38, 713122.03, 49925, 2889563.42, 1459526.6, 384615.0, 332299.79], ["UK", 2, 39, 742055.15, 51635, 2988534.95, 1518183.28, 384615.0, 343681.52], ["UK", 2, 40, 775074.92, 54680, 3116822.6, 1604525.08, 378788.0, 358434.6], ["UK", 2, 41, 830009.62, 55621, 3248065.99, 1626618.78, 417910.0, 373527.59], ["UK", 2, 42, 840551.69, 56383, 3292564.04, 1655457.49, 417910.0, 378644.86], ["UK", 2, 43, 851626.8, 57658, 3367019.45, 1710275.41, 417910.0, 387207.24], ["UK", 2, 44, 877372.78, 53616, 3239184.24, 1577540.27, 411765.0, 372506.19], ["UK", 2, 45, 884557.24, 51887, 3181514.53, 1513173.13, 417910.0, 365874.17], ["UK", 2, 46, 885259.01, 51173, 3178928.79, 1503850.97, 424242.0, 365576.81], ["UK", 2, 47, 931764.91, 52650, 3270681.82, 1538546.5, 424242.0, 376128.41], ["UK", 2, 48, 889726.27, 52390, 3205955.22, 1529634.1, 417910.0, 368684.85], ["UK", 2, 49, 754750.53, 49605, 2990889.71, 1480421.86, 411765.0, 343952.32], ["UK", 2, 50, 822018.11, 50004, 3059946.27, 1468124.34, 417910.0, 351893.82], ["UK", 2, 51, 823896.65, 51702, 3086686.57, 1489910.97, 417910.0, 354968.96], ["UK", 2, 52, 873625.66, 53869, 3216059.7, 1554677.17, 417910.0, 369846.87], ["UK", 2, 53, 891603.57, 52945, 3208787.88, 1523931.7, 424242.0, 369010.61], ["UK", 2, 54, 921716.93, 55632, 3321313.43, 1599735.46, 417910.0, 381951.04], ["UK", 2, 55, 979326.95, 54670, 3215882.35, 1572610.93, 294118.0, 369826.47], ["UK", 2, 56, 966507.79, 52013, 3105253.73, 1483134.76, 298507.0, 357104.18], ["UK", 2, 57, 925643.14, 50264, 3000835.82, 1431589.56, 298507.0, 345096.12], ["UK", 2, 58, 914779.68, 49831, 2974985.07, 1419575.11, 298507.0, 342123.28], ["UK", 2, 59, 946273.78, 49116, 2976727.27, 1385099.86, 303030.0, 342323.64], ["UK", 2, 60, 940202.81, 50195, 2996716.42, 1413384.22, 298507.0, 344622.39], ["US", 1, 1, 1061644.52, 83683, 4184150.0, 2381916.86, 500000.0, 240588.62], ["US", 1, 2, 1109847.9, 83137, 3666341.7, 1895679.16, 450000.0, 210814.65], ["US", 1, 3, 1306649.08, 82220, 3551904.0, 1741020.44, 300000.0, 204234.48], ["US", 1, 4, 1466270.47, 96748, 4005367.2, 2008788.12, 300000.0, 230308.61], ["US", 1, 5, 1336017.71, 97381, 4031573.4, 2013740.22, 450000.0, 231815.47], ["US", 1, 6, 866111.56, 72058, 2983201.2, 1495555.57, 450000.0, 171534.07], ["US", 1, 7, 588014.17, 78922, 3267370.8, 1691482.8, 800000.0, 187873.82], ["US", 1, 8, 1294275.32, 106637, 4606718.4, 2247556.77, 800000.0, 264886.31], ["US", 1, 9, 1507230.28, 110351, 4767163.2, 2185821.04, 800000.0, 274111.88], ["US", 1, 10, 1516229.8, 113956, 4922899.2, 2123602.7, 1000000.0, 283066.7], ["US", 1, 11, 1324866.57, 95915, 4143528.0, 1780408.57, 800000.0, 238252.86], ["US", 1, 12, 1282308.94, 108624, 4594795.2, 2048285.53, 1000000.0, 264200.72], ["US", 1, 13, 1748430.32, 123726, 5233609.8, 2384246.92, 800000.0, 300932.56], ["US", 1, 14, 2044337.17, 119919, 5072573.7, 2336563.54, 400000.0, 291672.99], ["US", 1, 15, 1518699.2, 95643, 4045698.9, 1894372.02, 400000.0, 232627.69], ["US", 1, 16, 1098132.74, 86938, 3599233.2, 1894144.55, 400000.0, 206955.91], ["US", 1, 17, 723294.87, 88879, 3679590.6, 1944719.27, 800000.0, 211576.46], ["US", 1, 18, 1040205.94, 95226, 3942356.4, 1875464.97, 800000.0, 226685.49], ["US", 1, 19, 1417496.17, 103291, 4490059.77, 2014385.16, 800000.0, 258178.44], ["US", 1, 20, 1501656.24, 108544, 4718407.68, 2145442.99, 800000.0, 271308.44], ["US", 1, 21, 1506966.56, 112078, 4872030.66, 2284922.34, 800000.0, 280141.76], ["US", 1, 22, 1617210.28, 115747, 5031522.09, 2324999.29, 800000.0, 289312.52], ["US", 1, 23, 1823397.2, 102847, 4917835.0, 2011662.29, 800000.0, 282775.51], ["US", 1, 24, 1519252.31, 110536, 4804999.92, 2209460.11, 800000.0, 276287.5], ["US", 1, 25, 1364854.29, 86825, 4151711.02, 1748133.35, 800000.0, 238723.38], ["US", 1, 26, 1511266.37, 94263, 4282005.18, 1884523.51, 640000.0, 246215.3], ["US", 1, 27, 1112273.74, 86168, 3718566.47, 1752475.16, 640000.0, 213817.57], ["US", 1, 28, 723431.78, 77609, 3181743.96, 1635361.91, 640000.0, 182950.28], ["US", 1, 29, 395358.45, 100933, 3310368.27, 2084663.65, 640000.0, 190346.18], ["US", 1, 30, 710122.39, 105087, 3618940.32, 2060728.86, 640000.0, 208089.07], ["US", 1, 31, 986005.27, 109127, 3945971.49, 2093072.85, 640000.0, 226893.36], ["US", 1, 32, 848192.32, 107185, 3875749.85, 2164701.91, 640000.0, 222855.62], ["US", 1, 33, 351029.0, 105707, 3822306.19, 2251494.58, 1000000.0, 219782.61], ["US", 1, 34, 713346.2, 114741, 4356419.13, 2392578.83, 1000000.0, 250494.1], ["US", 1, 35, 1296375.79, 128188, 5277128.93, 2677318.23, 1000000.0, 303434.91], ["US", 1, 36, 1030782.29, 128405, 4875205.88, 2564099.25, 1000000.0, 280324.34], ["US", 1, 37, 1411045.72, 132936, 5299598.05, 2583825.44, 1000000.0, 304726.89], ["US", 1, 38, 1206505.89, 132162, 5268741.93, 2759283.37, 1000000.0, 302952.66], ["US", 1, 39, 1103157.88, 135132, 5387143.31, 2974224.69, 1000000.0, 309760.74], ["US", 1, 40, 1075815.59, 135816, 5414411.51, 3027267.26, 1000000.0, 311328.66], ["US", 1, 41, 1264205.88, 131922, 5469541.11, 2890836.61, 1000000.0, 314498.61], ["US", 1, 42, 1324366.1, 136250, 5648981.79, 2999799.23, 1000000.0, 324816.45], ["US", 1, 43, 1322212.06, 136687, 5667099.99, 3019029.68, 1000000.0, 325858.25], ["US", 1, 44, 1458150.31, 128557, 5596528.14, 2816577.46, 1000000.0, 321800.37], ["US", 1, 45, 1428525.95, 128771, 5605844.3, 2854982.3, 1000000.0, 322336.05], ["US", 1, 46, 1487175.27, 131778, 5798232.0, 2977658.39, 1000000.0, 333398.34], ["US", 1, 47, 1633597.53, 139470, 6136680.0, 3150223.37, 1000000.0, 352859.1], ["US", 1, 48, 1643512.53, 137806, 6063464.0, 3071302.29, 1000000.0, 348649.18], ["US", 1, 49, 1378293.71, 122613, 5394972.0, 2706467.4, 1000000.0, 310210.89], ["US", 1, 50, 1540917.32, 124893, 5495292.0, 2638395.39, 1000000.0, 315979.29], ["US", 1, 51, 1630187.55, 129044, 5548892.0, 2599643.16, 1000000.0, 319061.29], ["US", 1, 52, 1821309.6, 134119, 5767117.0, 2614198.17, 1000000.0, 331609.23], ["US", 1, 53, 1709251.16, 133045, 5720935.0, 2682730.08, 1000000.0, 328953.76], ["US", 1, 54, 1597814.95, 134392, 5778856.0, 2848756.83, 1000000.0, 332284.22], ["US", 1, 55, 1634634.92, 134136, 5767848.0, 2801561.82, 1000000.0, 331651.26], ["US", 1, 56, 1697019.88, 134809, 5796787.0, 2766451.87, 1000000.0, 333315.25], ["US", 1, 57, 1799004.54, 136959, 5889237.0, 2751601.33, 1000000.0, 338631.13], ["US", 1, 58, 1873609.65, 136171, 5855353.0, 2645060.55, 1000000.0, 336682.8], ["US", 1, 59, 1857978.05, 136657, 5876251.0, 2680388.52, 1000000.0, 337884.43], ["US", 1, 60, 1816429.17, 137053, 5893279.0, 2737986.29, 1000000.0, 338863.54], ["US", 2, 1, 2373874.73, 82474, 5360810.0, 2636935.27, 350000.0, 0.0], ["US", 2, 2, 1530908.69, 85814, 4556723.4, 2620814.71, 405000.0, 0.0], ["US", 2, 3, 1496035.99, 84935, 4739373.0, 2543337.01, 700000.0, 0.0], ["US", 2, 4, 2178624.51, 107350, 6086745.0, 3208120.49, 700000.0, 0.0], ["US", 2, 5, 2232544.26, 110985, 6292849.5, 3360305.24, 700000.0, 0.0], ["US", 2, 6, 1456173.92, 87284, 4949002.8, 2792828.88, 700000.0, 0.0], ["US", 2, 7, 1591317.43, 88730, 5030991.0, 2739673.57, 700000.0, 0.0], ["US", 2, 8, 1734543.67, 112294, 6063876.0, 3629332.33, 700000.0, 0.0], ["US", 2, 9, 1043959.88, 110316, 5262073.2, 3518113.32, 700000.0, 0.0], ["US", 2, 10, 968021.07, 115922, 5529479.4, 3561458.33, 1000000.0, 0.0], ["US", 2, 11, 1021329.57, 100636, 4800337.2, 3079007.63, 700000.0, 0.0], ["US", 2, 12, 1035008.97, 118166, 5636518.2, 3601509.23, 1000000.0, 0.0], ["US", 2, 13, 2284635.49, 126514, 6490168.2, 3855532.71, 350000.0, 0.0], ["US", 2, 14, 1326256.36, 112122, 5751858.6, 3425602.24, 1000000.0, 0.0], ["US", 2, 15, 882342.84, 93353, 4620973.5, 2838630.66, 900000.0, 0.0], ["US", 2, 16, 840387.19, 94605, 4682947.5, 2942560.31, 900000.0, 0.0], ["US", 2, 17, 1285331.5, 104144, 5155128.0, 3319796.5, 550000.0, 0.0], ["US", 2, 18, 1538896.85, 110290, 5459355.0, 3370458.15, 550000.0, 0.0], ["US", 2, 19, 1912452.66, 112912, 5868601.2, 3406148.54, 550000.0, 0.0], ["US", 2, 20, 2126870.01, 118532, 6160700.7, 3483830.69, 550000.0, 0.0], ["US", 2, 21, 2226925.87, 120200, 6247395.0, 3470469.13, 550000.0, 0.0], ["US", 2, 22, 2299342.78, 122315, 6357322.12, 3507979.35, 550000.0, 0.0], ["US", 2, 23, 2883284.28, 120358, 6881167.76, 3447883.47, 550000.0, 0.0], ["US", 2, 24, 2562198.69, 132863, 6905554.42, 3793355.73, 550000.0, 0.0], ["US", 2, 25, 2706431.31, 113085, 6465352.16, 3208920.85, 550000.0, 0.0], ["US", 2, 26, 2530861.62, 122363, 6646008.69, 3455147.07, 660000.0, 0.0], ["US", 2, 27, 2021753.76, 113237, 5842823.25, 3161069.49, 660000.0, 0.0], ["US", 2, 28, 1601634.43, 106046, 5198191.69, 2936557.26, 660000.0, 0.0], ["US", 2, 29, 590587.15, 128109, 5023745.47, 3773158.31, 660000.0, 0.0], ["US", 2, 30, 1000310.89, 124419, 5122995.7, 3462684.81, 660000.0, 0.0], ["US", 2, 31, 1279585.0, 122239, 5284895.11, 3345310.12, 660000.0, 0.0], ["US", 2, 32, 1335017.88, 127033, 5492159.47, 3497141.59, 660000.0, 0.0], ["US", 2, 33, 998650.44, 129068, 5580140.89, 3581490.45, 1000000.0, 0.0], ["US", 2, 34, 1472471.16, 141242, 6411796.67, 3939325.51, 1000000.0, 0.0], ["US", 2, 35, 1339513.07, 137423, 6238430.03, 3898916.95, 1000000.0, 0.0], ["US", 2, 36, 1471553.11, 142884, 6486336.61, 4014783.51, 1000000.0, 0.0], ["US", 2, 37, 2034387.6, 131325, 6698460.85, 3664073.25, 1000000.0, 0.0], ["US", 2, 38, 1543884.9, 132913, 6779459.56, 3845755.73, 1000000.0, 389818.92], ["US", 2, 39, 1618295.61, 138011, 7039491.95, 4016425.55, 1000000.0, 404770.79], ["US", 2, 40, 1772377.69, 145685, 7430917.71, 4231262.26, 1000000.0, 427277.77], ["US", 2, 41, 1947229.38, 149497, 7930369.64, 4327144.0, 1200000.0, 455996.25], ["US", 2, 42, 1952105.92, 150560, 7986758.62, 4375414.08, 1200000.0, 459238.62], ["US", 2, 43, 1956196.38, 152958, 8113965.36, 4491215.98, 1200000.0, 466553.01], ["US", 2, 44, 2135382.23, 142698, 7948188.13, 4155785.09, 1200000.0, 457020.82], ["US", 2, 45, 2092873.18, 139329, 7760536.97, 4021432.91, 1200000.0, 446230.88], ["US", 2, 46, 2064340.71, 137780, 7715680.0, 4007687.69, 1200000.0, 443651.6], ["US", 2, 47, 2207830.62, 142839, 7998984.0, 4131211.8, 1200000.0, 459941.58], ["US", 2, 48, 2128756.08, 139378, 7805168.0, 4027614.76, 1200000.0, 448797.16], ["US", 2, 49, 2185706.64, 127976, 7166656.0, 3780949.36, 1200000.0, 0.0], ["US", 2, 50, 2346417.31, 131642, 7371952.0, 3825534.69, 1200000.0, 0.0], ["US", 2, 51, 2416533.69, 131593, 7369208.0, 3752674.31, 1200000.0, 0.0], ["US", 2, 52, 2601299.66, 138533, 7757848.0, 3956548.34, 1200000.0, 0.0], ["US", 2, 53, 2598433.09, 138041, 7730296.0, 3931862.91, 1200000.0, 0.0], ["US", 2, 54, 2744898.87, 143220, 8020320.0, 4075421.13, 1200000.0, 0.0], ["US", 2, 55, 2741478.33, 143147, 8016232.0, 4074753.67, 1200000.0, 0.0], ["US", 2, 56, 2748542.09, 142109, 7958104.0, 4009561.91, 1200000.0, 0.0], ["US", 2, 57, 2778475.74, 143015, 8008840.0, 4030364.26, 1200000.0, 0.0], ["US", 2, 58, 2791024.18, 143499, 8035944.0, 4044919.82, 1200000.0, 0.0], ["US", 2, 59, 2836312.58, 143644, 8044064.0, 4007751.42, 1200000.0, 0.0], ["US", 2, 60, 2871125.14, 144663, 8101128.0, 4030002.86, 1200000.0, 0.0]];
+// INV: [Product, pNum, TotalProduction, TotalUnitsSold]
+const INV_RAW = [[1, 1, 225000, 244655], [1, 2, 253438, 235831], [1, 3, 281520, 229994], [1, 4, 309251, 274268], [1, 5, 305385, 276594], [1, 6, 201854, 204878], [1, 7, 236523, 217457], [1, 8, 200103, 298671], [1, 9, 289458, 306669], [1, 10, 286770, 306150], [1, 11, 283185, 255491], [1, 12, 322123, 281485], [1, 13, 318096, 337220], [1, 14, 314120, 305700], [1, 15, 310194, 245094], [1, 16, 91494, 225566], [1, 17, 271183, 238473], [1, 18, 278956, 257774], [1, 19, 275469, 277723], [1, 20, 272026, 289016], [1, 21, 299876, 298343], [1, 22, 296127, 306127], [1, 23, 292426, 272824], [1, 24, 288770, 291271], [1, 25, 310161, 230161], [1, 26, 273143, 251621], [1, 27, 206696, 233973], [1, 28, 269049, 213095], [1, 29, 148828, 277734], [1, 30, 274709, 289675], [1, 31, 271275, 301897], [1, 32, 267884, 312321], [1, 33, 264536, 296719], [1, 34, 300909, 331744], [1, 35, 342284, 323155], [1, 36, 338006, 328035], [1, 37, 333781, 342260], [1, 38, 325000, 344727], [1, 39, 320938, 350474], [1, 40, 354426, 353284], [1, 41, 349995, 346665], [1, 42, 345621, 359320], [1, 43, 362134, 361270], [1, 44, 357607, 341756], [1, 45, 353137, 340555], [1, 46, 348723, 348015], [1, 47, 344364, 368591], [1, 48, 340059, 365219], [1, 49, 350000, 328868], [1, 50, 389375, 333152], [1, 51, 339661, 350651], [1, 52, 346070, 364664], [1, 53, 327555, 361074], [1, 54, 363307, 364997], [1, 55, 365640, 363861], [1, 56, 361069, 361203], [1, 57, 390067, 364991], [1, 58, 401474, 363376], [1, 59, 395074, 362714], [1, 60, 391500, 363942], [2, 1, 225000, 242850], [2, 2, 229688, 241239], [2, 3, 261270, 231075], [2, 4, 295504, 298795], [2, 5, 291810, 310465], [2, 6, 241076, 243338], [2, 7, 305763, 249261], [2, 8, 218283, 294905], [2, 9, 262167, 285739], [2, 10, 307305, 288710], [2, 11, 283463, 253004], [2, 12, 279920, 283656], [2, 13, 276421, 330447], [2, 14, 272966, 306011], [2, 15, 310499, 239534], [2, 16, 226648, 233587], [2, 17, 228499, 259144], [2, 18, 284187, 273998], [2, 19, 280635, 277109], [2, 20, 302127, 289391], [2, 21, 298350, 294210], [2, 22, 294621, 297880], [2, 23, 290938, 294305], [2, 24, 287302, 324711], [2, 25, 303710, 281730], [2, 26, 299914, 310921], [2, 27, 321165, 295471], [2, 28, 327150, 279452], [2, 29, 202522, 330025], [2, 30, 328898, 322550], [2, 31, 324787, 318852], [2, 32, 320727, 328752], [2, 33, 316718, 320422], [2, 34, 312759, 341959], [2, 35, 308849, 323520], [2, 36, 337790, 335277], [2, 37, 346924, 323721], [2, 38, 325000, 329862], [2, 39, 320938, 339407], [2, 40, 352926, 357264], [2, 41, 348514, 363590], [2, 42, 344158, 365919], [2, 43, 363856, 371557], [2, 44, 359308, 344064], [2, 45, 354816, 335348], [2, 46, 350381, 333459], [2, 47, 346001, 346045], [2, 48, 341676, 338966], [2, 49, 350000, 314579], [2, 50, 380625, 322401], [2, 51, 331446, 335779], [2, 52, 332834, 352774], [2, 53, 333574, 351476], [2, 54, 333308, 364595], [2, 55, 333389, 366356], [2, 56, 352956, 361897], [2, 57, 348544, 362907], [2, 58, 344187, 363790], [2, 59, 374884, 361637], [2, 60, 370198, 364711]];
+
+// ── STATE ─────────────────────────────────────────────────
+let cfData=CF_RAW, invData=INV_RAW;
+let RELOC_PERIOD=38;
+let selectedCountries=new Set(['China','Germany','Japan','Mexico','UK','US']);
+let selectedProducts=new Set([1,2]);
+let pMin=1, pMax=60;
+const charts={};
+
+const COUNTRIES=['China','Germany','Japan','Mexico','UK','US'];
+const COUNTRY_COLORS={China:'#a05195',Germany:'#4472c4',Japan:'#5b9bd5',Mexico:'#76b7b2',UK:'#e86850',US:'#e7cc54'};
+const COUNTRY_DISPLAY={US:'United States'};
+const cLabel=c=>COUNTRY_DISPLAY[c]||c;
+
+function fmtM(v){return v==null?'—':'$'+((v/1e6).toFixed(1))+'M';}
+function fmtX(v){return v==null?'—':v.toFixed(2)+'x';}
+function fmt$(v){return v==null?'—':'$'+Math.round(v).toLocaleString();}
+function fmtK(v){return Intl.NumberFormat('en',{notation:'compact',maximumFractionDigits:1}).format(v);}
+function fmt$0(v){return v==null?'—':'$'+Math.round(v);}
+
+// ── PLUGINS ───────────────────────────────────────────────
+// Compute x pixel for RELOC_PERIOD using Chart.js scale API
+function relocXPixel(chart) {
+  const labels=chart.data.labels;
+  if(!labels) return null;
+  const idx=labels.findIndex(l=>l===RELOC_PERIOD||+l===RELOC_PERIOD);
+  if(idx<0) return null;
+  const sc=chart.scales.x;
+  if(!sc||!sc.getPixelForValue) return null;
+  // Category scale: getPixelForValue(index) returns correct pixel position
+  return sc.getPixelForValue(idx);
+}
+
+const relocLinePlugin={
+  id:'relocLine',
+  afterDraw(chart){
+    if(!chart.options.plugins?.relocLine?.enabled) return;
+    const x=relocXPixel(chart);
+    if(x==null||isNaN(x)) return;
+    const {ctx,chartArea}=chart;
+    ctx.save();
+    ctx.strokeStyle='rgba(122,199,168,0.45)';
+    ctx.lineWidth=1.5; ctx.setLineDash([5,3]);
+    ctx.beginPath(); ctx.moveTo(x,chartArea.top); ctx.lineTo(x,chartArea.bottom); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='rgba(122,199,168,0.65)';
+    ctx.font='8px "Segoe UI",sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.fillText('Relocation',x,chartArea.top+2);
+    ctx.restore();
+  }
+};
+
+// Registry: chartId -> formatter fn (bypasses Chart.js option merging which can drop function refs)
+const _endFmtReg={};
+
+// End-of-line labels showing formatted VALUE
+const endLabelPlugin={
+  id:'endLabel',
+  afterDraw(chart){
+    const opts=chart.options.plugins?.endLabel;
+    if(!opts?.enabled) return;
+    // Look up formatter by canvas id from registry; fall back to generic
+    const fmt=_endFmtReg[chart.canvas.id]||(v=>v==null?'':String(Math.round(v)));
+    const {ctx,chartArea}=chart;
+    chart.data.datasets.forEach((ds,i)=>{
+      const meta=chart.getDatasetMeta(i);
+      if(meta.hidden) return;
+      let lastEl=null, lastVal=null;
+      for(let j=meta.data.length-1;j>=0;j--){
+        if(ds.data[j]!=null && meta.data[j] && !isNaN(meta.data[j].x)){
+          lastEl=meta.data[j]; lastVal=ds.data[j]; break;
+        }
+      }
+      if(!lastEl||lastVal==null) return;
+      const y=Math.max(chartArea.top+5,Math.min(chartArea.bottom-5,lastEl.y));
+      ctx.save();
+      ctx.fillStyle=ds.borderColor;
+      ctx.font='bold 9px "Segoe UI",sans-serif';
+      ctx.textAlign='left'; ctx.textBaseline='middle';
+      ctx.fillText(fmt(lastVal),lastEl.x+4,y);
+      ctx.restore();
+    });
+  }
+};
+
+// Bubble chart: avg reference lines + quadrant labels + country name labels on bubbles
+const bubbleQuadPlugin={
+  id:'bubbleQuad',
+  afterDatasetsDraw(chart){
+    const opts=chart.options.plugins?.bubbleQuad;
+    if(!opts) return;
+    const {ctx,chartArea,scales}=chart;
+    if(!scales.x||!scales.y) return;
+
+    // Avg reference lines
+    if(opts.avgX!=null && opts.avgY!=null){
+      const xPx=scales.x.getPixelForValue(opts.avgX);
+      const yPx=scales.y.getPixelForValue(opts.avgY);
+      ctx.save();
+      ctx.strokeStyle='rgba(255,255,255,0.18)';
+      ctx.lineWidth=1; ctx.setLineDash([4,4]);
+      ctx.beginPath(); ctx.moveTo(xPx,chartArea.top); ctx.lineTo(xPx,chartArea.bottom); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(chartArea.left,yPx); ctx.lineTo(chartArea.right,yPx); ctx.stroke();
+      ctx.setLineDash([]);
+      // Quadrant labels
+      ctx.font='bold 10px "Segoe UI",sans-serif';
+      ctx.fillStyle='rgba(255,255,255,0.22)';
+      ctx.textAlign='left';  ctx.textBaseline='top';    ctx.fillText('Priority Markets',chartArea.left+8,chartArea.top+8);
+      ctx.textAlign='right'; ctx.textBaseline='top';    ctx.fillText('High Value, Optimize Spend',chartArea.right-8,chartArea.top+8);
+      ctx.textAlign='left';  ctx.textBaseline='bottom'; ctx.fillText('Monitor / Deprioritize',chartArea.left+8,chartArea.bottom-8);
+      ctx.textAlign='right'; ctx.textBaseline='bottom'; ctx.fillText('Reassess Investment',chartArea.right-8,chartArea.bottom-8);
+      ctx.restore();
+    }
+
+    // Country name labels centered on each bubble
+    ctx.save();
+    ctx.font='bold 9px "Segoe UI",sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    chart.data.datasets.forEach((ds,i)=>{
+      const meta=chart.getDatasetMeta(i);
+      if(!meta.data[0]) return;
+      const el=meta.data[0];
+      ctx.fillStyle='rgba(0,0,0,0.6)';
+      const tw=ctx.measureText(ds.label).width;
+      ctx.fillRect(el.x-tw/2-2, el.y-7, tw+4, 14);
+      ctx.fillStyle='#fff';
+      ctx.fillText(ds.label, el.x, el.y);
+    });
+    ctx.restore();
+  }
+};
+
+Chart.register(relocLinePlugin,endLabelPlugin,bubbleQuadPlugin);
+
+// ── DATA HELPERS ──────────────────────────────────────────
+function filteredCF(){return cfData.filter(r=>selectedCountries.has(r[0])&&selectedProducts.has(r[1])&&r[2]>=pMin&&r[2]<=pMax);}
+function filteredINV(){return invData.filter(r=>selectedProducts.has(r[0])&&r[1]>=pMin&&r[1]<=pMax);}
+function getPeriods(){const s=new Set();cfData.filter(r=>r[2]>=pMin&&r[2]<=pMax).forEach(r=>s.add(r[2]));return[...s].sort((a,b)=>a-b);}
+function getInvPeriods(){const s=new Set();invData.filter(r=>r[1]>=pMin&&r[1]<=pMax).forEach(r=>s.add(r[1]));return[...s].sort((a,b)=>a-b);}
+
+function lineDefaults(withReloc=true){
+  return{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},endLabel:{enabled:true},relocLine:{enabled:withReloc},
+      tooltip:{mode:'index',intersect:false}},
+    layout:{padding:{right:62}},
+    scales:{
+      x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#b4b4b4',font:{size:8},maxTicksLimit:15},border:{color:'rgba(255,255,255,.08)'}},
+      y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#b4b4b4',font:{size:8}},border:{color:'rgba(255,255,255,.08)'}}
+    }
+  };
+}
+
+function buildLine(id,periods,datasets,fmtFn){
+  destroyChart(id);
+  _endFmtReg[id]=fmtFn; // register formatter by canvas id
+  const ctx=document.getElementById(id).getContext('2d');
+  const opts=lineDefaults(true);
+  opts.plugins.tooltip.callbacks={label:c=>`${c.dataset.label}: ${fmtFn(c.parsed.y)}`};
+  opts.scales.y.ticks.callback=v=>fmtFn(v);
+  charts[id]=new Chart(ctx,{type:'line',data:{labels:periods,datasets},options:opts});
+}
+
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+
+// ── EXECUTIVE SUMMARY ─────────────────────────────────────
+function renderExecutive(){
+  const cf=filteredCF();
+  if(!cf.length) return;
+  const maxP=Math.max(...cf.map(r=>r[2]));
+  const lastP=cf.filter(r=>r[2]===maxP);
+
+  // KPI 1-3: totals for last period (product-filtered)
+  const totalCM   =lastP.reduce((s,r)=>s+r[3],0);
+  const totalRev  =lastP.reduce((s,r)=>s+r[5],0);
+  const totalOpEx =lastP.reduce((s,r)=>s+(r[6]+r[7]+r[8]),0);
+  const cmEff     =totalOpEx?totalCM/totalOpEx:0;
+
+  // KPI 4-5: SUM(CM)/SUM(OpEx) across ALL selected periods (all products, selected countries)
+  const cfAllPeriods=cfData.filter(r=>selectedCountries.has(r[0])&&r[2]>=pMin&&r[2]<=pMax);
+  const cmByC={},opexByC={};
+  cfAllPeriods.forEach(r=>{
+    cmByC[r[0]]=(cmByC[r[0]]||0)+r[3];
+    opexByC[r[0]]=(opexByC[r[0]]||0)+(r[6]+r[7]+r[8]);
+  });
+  const bestCM =Object.entries(cmByC).sort((a,b)=>b[1]-a[1])[0];
+  const bestEff=Object.entries(cmByC).map(([c,cm])=>({c,eff:opexByC[c]?cm/opexByC[c]:0})).sort((a,b)=>b.eff-a.eff)[0];
+
+  document.getElementById('exec-kpis').innerHTML=`
+    <div class="kpi-card"><div class="kpi-label">Total Contribution P${maxP}</div><div class="kpi-value">${fmtM(totalCM)}</div><div class="kpi-sub">all selected markets</div></div>
+    <div class="kpi-card"><div class="kpi-label">Revenue P${maxP}</div><div class="kpi-value">${fmtM(totalRev)}</div><div class="kpi-sub">total sales</div></div>
+    <div class="kpi-card"><div class="kpi-label">CM Efficiency P${maxP}</div><div class="kpi-value">${fmtX(cmEff)}</div><div class="kpi-sub">SUM(CM)/SUM(OpEx)</div></div>
+    <div class="kpi-card"><div class="kpi-label">Largest Consumer</div><div class="kpi-value" style="font-size:16px;">${bestCM?cLabel(bestCM[0]):'—'}</div><div class="kpi-sub">${bestCM?fmtM(bestCM[1]):''} CM</div></div>
+    <div class="kpi-card"><div class="kpi-label">Highest CM Efficiency</div><div class="kpi-value" style="font-size:16px;">${bestEff?cLabel(bestEff.c):'—'}</div><div class="kpi-sub">${bestEff?fmtX(bestEff.eff):''}</div></div>`;
+
+  const lastPeriodData=cfData.filter(r=>selectedCountries.has(r[0])&&r[2]===maxP);
+  renderBubble(lastPeriodData);
+  renderRanking(cf);
+}
+
+function renderBubble(lastPAll){
+  const stats={};
+  lastPAll.forEach(r=>{
+    const c=r[0];
+    if(!stats[c]) stats[c]={cm:0,units:0,mkt:0};
+    stats[c].cm+=r[3]; stats[c].units+=r[4]; stats[c].mkt+=r[7];
+  });
+  const countries=[...selectedCountries].filter(c=>stats[c]&&stats[c].units>0);
+  if(!countries.length) return;
+
+  const allMktU=countries.map(c=>stats[c].mkt/stats[c].units);
+  const allCMU =countries.map(c=>stats[c].cm/stats[c].units);
+  const avgX=allMktU.reduce((s,v)=>s+v,0)/(allMktU.length||1);
+  const avgY=allCMU.reduce((s,v)=>s+v,0)/(allCMU.length||1);
+
+  // Normalize bubble radius: map CM range to [10, 38]px
+  const cmVals=countries.map(c=>stats[c].cm);
+  const cmMin=Math.min(...cmVals), cmMax=Math.max(...cmVals);
+  const cmRange=cmMax-cmMin||1;
+  const bubbleR=c=>6+18*((stats[c].cm-cmMin)/cmRange);
+
+  const datasets=countries.map(c=>({
+    label:cLabel(c),
+    data:[{x:stats[c].mkt/stats[c].units, y:stats[c].cm/stats[c].units, r:bubbleR(c)}],
+    backgroundColor:COUNTRY_COLORS[c]+'bb',borderColor:COUNTRY_COLORS[c],borderWidth:2
+  }));
+
+  destroyChart('bubble-chart');
+  const ctx=document.getElementById('bubble-chart').getContext('2d');
+  charts['bubble-chart']=new Chart(ctx,{
+    type:'bubble',data:{datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      layout:{padding:16},
+      plugins:{
+        legend:{display:false},
+        bubbleQuad:{avgX,avgY,stats},
+        tooltip:{callbacks:{
+          label:c=>{
+            const ctry=COUNTRIES.find(x=>cLabel(x)===c.dataset.label)||c.dataset.label;
+            const s=stats[ctry]||{cm:0};
+            return [`${c.dataset.label}`,`Total CM: ${fmtM(s.cm)}`,`CM/unit: ${fmt$(c.parsed.y)}`,`Mkt/unit: ${fmt$(c.parsed.x)}`];
+          }
+        }}
+      },
+      scales:{
+        x:{title:{display:true,text:'Marketing Expense Per Unit',color:'#b4b4b4',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#b4b4b4',font:{size:8}}},
+        y:{title:{display:true,text:'Contribution Per Unit',color:'#b4b4b4',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#b4b4b4',font:{size:8}}}
+      }
+    }
+  });
+}
+
+function renderRanking(cf){
+  const byC={};
+  cf.forEach(r=>{
+    const c=r[0];
+    if(!byC[c]) byC[c]={cm:0,units:0,rev:0,mc:0,mkt:0,opex:0};
+    byC[c].cm+=r[3]; byC[c].units+=r[4]; byC[c].rev+=r[5];
+    byC[c].mc+=r[6]; byC[c].mkt+=r[7]; byC[c].opex+=(r[6]+r[7]+r[8]);
+  });
+  const countries=Object.keys(byC);
+  if(!countries.length){document.getElementById('rank-table-wrap').innerHTML='';return;}
+
+  function rankOf(vals,asc){
+    const sorted=[...vals].sort((a,b)=>asc?(a.v-b.v):(b.v-a.v));
+    const r={};sorted.forEach((x,i)=>{r[x.c]=i+1;});return r;
+  }
+  const metrics=[
+    {name:'CM',       vals:countries.map(c=>({c,v:byC[c].cm})),                                      asc:false},
+    {name:'CM Eff',   vals:countries.map(c=>({c,v:byC[c].opex?byC[c].cm/byC[c].opex:0})),           asc:false},
+    {name:'CM/Unit',  vals:countries.map(c=>({c,v:byC[c].units?byC[c].cm/byC[c].units:0})),         asc:false},
+    {name:'Mkt/Unit', vals:countries.map(c=>({c,v:byC[c].units?byC[c].mkt/byC[c].units:0})),        asc:true},
+    {name:'GM/Unit',  vals:countries.map(c=>({c,v:byC[c].units?(byC[c].rev-byC[c].mc)/byC[c].units:0})),asc:false}
+  ];
+  const ranks={};
+  countries.forEach(c=>{ranks[c]={};});
+  metrics.forEach(m=>{const r=rankOf(m.vals,m.asc);countries.forEach(c=>{ranks[c][m.name]=r[c];});});
+  const avgRank=c=>metrics.reduce((s,m)=>s+ranks[c][m.name],0)/metrics.length;
+  const overallRanks=rankOf(countries.map(c=>({c,v:avgRank(c)})),true);
+  const n=countries.length;
+  function oColor(r){const t=(r-1)/(n-1||1);const g=[50,168,120],b_=[70,50,70];return'rgb('+g.map((v,i)=>Math.round(v+(b_[i]-v)*t)).join(',')+')';}
+  const sorted=[...countries].sort((a,b)=>overallRanks[a]-overallRanks[b]);
+
+  document.getElementById('rank-table-wrap').innerHTML=`<table class="rank-table">
+    <thead><tr><th style="text-align:left">Country</th>${metrics.map(m=>`<th>${m.name}</th>`).join('')}<th>Overall</th></tr></thead>
+    <tbody>${sorted.map(c=>`<tr>
+      <td style="text-align:left;font-weight:600">${cLabel(c)}</td>
+      ${metrics.map(m=>`<td><span class="rank-cell" style="color:var(--muted)">${ranks[c][m.name]}</span></td>`).join('')}
+      <td><span class="rank-cell" style="background:${oColor(overallRanks[c])}">${overallRanks[c]}</span></td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+// ── MARKET PERFORMANCE ───────────────────────────────────
+function renderPerformance(){
+  const cf=filteredCF();
+  const periods=getPeriods();
+  const countries=[...selectedCountries];
+
+  // Shared legend
+  document.getElementById('perf-legend').innerHTML=countries.map(c=>
+    `<span class="leg-item"><span class="leg-dot" style="background:${COUNTRY_COLORS[c]}"></span>${cLabel(c)}</span>`
+  ).join('');
+
+  // Aggregate
+  const byCP={};
+  cf.forEach(r=>{
+    const k=r[0]+'|'+r[2];
+    if(!byCP[k]) byCP[k]={cm:0,units:0,rev:0,mc:0,mkt:0,opex:0};
+    byCP[k].cm+=r[3];byCP[k].units+=r[4];byCP[k].rev+=r[5];byCP[k].mc+=r[6];byCP[k].mkt+=r[7];byCP[k].opex+=(r[6]+r[7]+r[8]);
+  });
+
+  const mkSets=(keyFn)=>countries.map(c=>({
+    label:cLabel(c),data:periods.map(p=>{const d=byCP[c+'|'+p];return d?keyFn(d):null;}),
+    borderColor:COUNTRY_COLORS[c],backgroundColor:COUNTRY_COLORS[c],tension:.3,pointRadius:1,borderWidth:2,spanGaps:true
+  }));
+
+  buildLine('cm-chart',  periods, mkSets(d=>d.cm),                       fmtM);
+  buildLine('cpu-chart', periods, mkSets(d=>d.units?d.cm/d.units:null),  v=>fmt$0(v));
+  buildLine('eff-chart', periods, mkSets(d=>d.opex?d.cm/d.opex:null),    v=>v.toFixed(2)+'x');
+  buildLine('mkt-chart', periods, mkSets(d=>d.units?d.mkt/d.units:null), v=>fmt$0(v));
+  buildLine('gm-chart',  periods, mkSets(d=>d.units?(d.rev-d.mc)/d.units:null), v=>fmt$0(v));
+}
+
+// ── FACTORY RELOCATION ───────────────────────────────────
+function renderFactory(){
+  const cf=filteredCF();
+  const periods=getPeriods();
+  document.querySelectorAll('#reloc-label,.reloc-ref').forEach(el=>el.textContent=RELOC_PERIOD);
+
+  const byP={};
+  cf.forEach(r=>{const p=r[2];if(!byP[p])byP[p]={rev:0,opex:0};byP[p].rev+=r[5];byP[p].opex+=(r[6]+r[7]+r[8]);});
+
+  destroyChart('revopex-chart');
+  _endFmtReg['revopex-chart']=fmtM;
+  const o1=lineDefaults(true);
+  o1.plugins.endLabel.formatter=fmtM;
+  o1.plugins.tooltip.callbacks={label:c=>c.dataset.label+': '+fmtM(c.parsed.y)};
+  o1.scales.y.ticks.callback=fmtM;
+  charts['revopex-chart']=new Chart(document.getElementById('revopex-chart').getContext('2d'),{
+    type:'line',
+    data:{labels:periods,datasets:[
+      {label:'Revenue',data:periods.map(p=>byP[p]?.rev??null),borderColor:'#e7cc54',tension:.3,pointRadius:1,borderWidth:2,spanGaps:true},
+      {label:'OpEx',   data:periods.map(p=>byP[p]?.opex??null),borderColor:'#69a053',tension:.3,pointRadius:1,borderWidth:2,spanGaps:true}
+    ]},options:o1
+  });
+
+  const countries=[...selectedCountries];
+  const cmBef={},cmAft={},effBef={},effAft={};
+  countries.forEach(c=>{cmBef[c]=[];cmAft[c]=[];effBef[c]={cm:0,opex:0};effAft[c]={cm:0,opex:0};});
+  const bs=Math.max(1,RELOC_PERIOD-5),be=RELOC_PERIOD-1;
+  const as=RELOC_PERIOD,ae=RELOC_PERIOD+4;
+  cf.forEach(r=>{
+    const[c,,p,cm,,,mc,mkt,tariff]=r;const opex=mc+mkt+tariff;
+    if(!countries.includes(c))return;
+    if(p>=bs&&p<=be){cmBef[c].push(cm);effBef[c].cm+=cm;effBef[c].opex+=opex;}
+    if(p>=as&&p<=ae){cmAft[c].push(cm);effAft[c].cm+=cm;effAft[c].opex+=opex;}
+  });
+  const cLabs=countries.map(cLabel);
+  const barOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+    scales:{x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#b4b4b4',font:{size:9}}},
+            y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#b4b4b4',font:{size:9}}}}};
+
+  destroyChart('cmba-chart');
+  const bo2={...barOpts,plugins:{...barOpts.plugins,tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmtM(c.parsed.y)}}}};
+  bo2.scales.y.ticks.callback=fmtM;
+  charts['cmba-chart']=new Chart(document.getElementById('cmba-chart').getContext('2d'),{type:'bar',data:{labels:cLabs,datasets:[
+    {label:'Before',data:countries.map(c=>cmBef[c].length?cmBef[c].reduce((s,v)=>s+v,0)/cmBef[c].length:null),backgroundColor:'#597caa80',borderColor:'#7aaad4',borderWidth:1},
+    {label:'After', data:countries.map(c=>cmAft[c].length?cmAft[c].reduce((s,v)=>s+v,0)/cmAft[c].length:null),backgroundColor:'#91bab680',borderColor:'#91bab6',borderWidth:1}
+  ]},options:bo2});
+
+  destroyChart('effba-chart');
+  const bo3={...barOpts,plugins:{...barOpts.plugins,tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toFixed(2)+'x'}}}};
+  bo3.scales.y.ticks.callback=v=>v.toFixed(2)+'x';
+  charts['effba-chart']=new Chart(document.getElementById('effba-chart').getContext('2d'),{type:'bar',data:{labels:cLabs,datasets:[
+    {label:'Before',data:countries.map(c=>effBef[c].opex?effBef[c].cm/effBef[c].opex:null),backgroundColor:'#597caa80',borderColor:'#7aaad4',borderWidth:1},
+    {label:'After', data:countries.map(c=>effAft[c].opex?effAft[c].cm/effAft[c].opex:null),backgroundColor:'#91bab680',borderColor:'#91bab6',borderWidth:1}
+  ]},options:bo3});
+}
+
+// ── INVENTORY & OPS ───────────────────────────────────────
+function renderOps(){
+  const inv=filteredINV();
+  const periods=getInvPeriods();
+  const products=[...selectedProducts].sort();
+  const INIT={1:36200,2:40900};
+  const PCOL={1:'#5b9bd5',2:'#e7cc54'};
+  const PVS={p1:'#4472c4',s1:'#76b7b2',p2:'#e7cc54',s2:'#e86850'};
+
+  // Cumulative balance
+  const cumBal={};
+  products.forEach(prod=>{
+    const rows=inv.filter(r=>r[0]===prod).sort((a,b)=>a[1]-b[1]);
+    let run=INIT[prod]||0;const pm={};
+    rows.forEach(r=>{run+=(r[2]-r[3]);pm[r[1]]=run;});
+    cumBal[prod]=periods.map(p=>pm[p]??null);
+  });
+  const lastP=inv.length?Math.max(...inv.map(r=>r[1])):pMax;
+  document.getElementById('inv-kpis').innerHTML=products.map(prod=>{
+    const lb=cumBal[prod].at(-1);const pos=(lb??0)>0;
+    return`<div class="kpi-card"><div class="kpi-label">Product ${prod} Cumulative</div>
+    <div class="kpi-value" style="color:${pos?'#69a053':'#e86850'}">${lb!=null?Math.round(lb).toLocaleString():'—'}</div>
+    <div class="kpi-sub" style="color:${pos?'#69a053':'#e86850'}">${pos?'surplus':'deficit'} as of P${lastP}</div></div>`;
+  }).join('');
+
+  const legOpts={display:true,position:'top',labels:{color:'#b4b4b4',font:{size:9},boxWidth:9,padding:8}};
+
+  destroyChart('cumbal-chart');
+  const o1=lineDefaults(false);
+  o1.plugins.legend=legOpts;o1.plugins.endLabel={enabled:false};
+  o1.scales.y.ticks.callback=fmtK;
+  charts['cumbal-chart']=new Chart(document.getElementById('cumbal-chart').getContext('2d'),{
+    type:'line',data:{labels:periods,datasets:products.map(prod=>({
+      label:`Product ${prod}`,data:cumBal[prod],borderColor:PCOL[prod],backgroundColor:PCOL[prod]+'22',tension:.3,pointRadius:1,borderWidth:2,fill:true,spanGaps:true
+    }))},options:o1
+  });
+
+  // Production vs Sold — 4 distinct solid colors
+  const byPP={};
+  products.forEach(prod=>{byPP[prod]={pr:{},sl:{}};});
+  inv.forEach(r=>{if(byPP[r[0]]){byPP[r[0]].pr[r[1]]=r[2];byPP[r[0]].sl[r[1]]=r[3];}});
+
+  const pvsSets=[];
+  products.forEach(prod=>{
+    pvsSets.push({label:`P${prod} Production`,data:periods.map(p=>byPP[prod].pr[p]??null),borderColor:PVS['p'+prod],backgroundColor:PVS['p'+prod],tension:.3,pointRadius:1,borderWidth:2,spanGaps:true});
+    pvsSets.push({label:`P${prod} Sold`,     data:periods.map(p=>byPP[prod].sl[p]??null),borderColor:PVS['s'+prod],backgroundColor:PVS['s'+prod],tension:.3,pointRadius:1,borderWidth:2,spanGaps:true});
+  });
+  destroyChart('prodvssold-chart');
+  const o2=lineDefaults(false);
+  o2.plugins.legend=legOpts;o2.plugins.endLabel={enabled:false};
+  o2.scales.y.ticks.callback=fmtK;
+  charts['prodvssold-chart']=new Chart(document.getElementById('prodvssold-chart').getContext('2d'),{type:'line',data:{labels:periods,datasets:pvsSets},options:o2});
+
+  destroyChart('perbal-chart');
+  const o3=lineDefaults(false);
+  o3.plugins.legend=legOpts;o3.plugins.endLabel={enabled:false};
+  o3.scales.y.ticks.callback=fmtK;
+  charts['perbal-chart']=new Chart(document.getElementById('perbal-chart').getContext('2d'),{
+    type:'line',data:{labels:periods,datasets:products.map(prod=>({
+      label:`Product ${prod}`,data:periods.map(p=>(byPP[prod].pr[p]??0)-(byPP[prod].sl[p]??0)||null),
+      borderColor:PCOL[prod],backgroundColor:PCOL[prod]+'33',tension:.3,pointRadius:1,borderWidth:2,fill:true,spanGaps:true
+    }))},options:o3
+  });
+}
+
+// ── TABS ──────────────────────────────────────────────────
+let activeTab='executive';
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active'); activeTab=t.dataset.tab;
+    document.getElementById('tab-'+activeTab).classList.add('active');
+    renderActiveTab();
+  });
+});
+
+function renderActiveTab(){
+  if(activeTab==='executive') renderExecutive();
+  else if(activeTab==='performance') renderPerformance();
+  else if(activeTab==='factory') renderFactory();
+  else if(activeTab==='ops') renderOps();
+}
+
+// ── FILTERS ───────────────────────────────────────────────
+function setupFilters(){
+  COUNTRIES.forEach(c=>{
+    const lbl=document.createElement('label');lbl.className='checkbox-label active';
+    lbl.innerHTML=`<input type="checkbox" value="${c}" checked> ${cLabel(c)}`;
+    const cb=lbl.querySelector('input');
+    cb.addEventListener('change',()=>{cb.checked?selectedCountries.add(c):selectedCountries.delete(c);lbl.classList.toggle('active',cb.checked);});
+    document.getElementById('country-filters').appendChild(lbl);
+  });
+  [1,2].forEach(p=>{
+    const lbl=document.createElement('label');lbl.className='checkbox-label active';
+    lbl.innerHTML=`<input type="checkbox" value="${p}" checked> P${p}`;
+    const cb=lbl.querySelector('input');
+    cb.addEventListener('change',()=>{cb.checked?selectedProducts.add(p):selectedProducts.delete(p);lbl.classList.toggle('active',cb.checked);});
+    document.getElementById('product-filters').appendChild(lbl);
+  });
+  const pminEl=document.getElementById('pmin'),pmaxEl=document.getElementById('pmax');
+  pminEl.addEventListener('input',()=>{pMin=Math.min(+pminEl.value,pMax-1);pminEl.value=pMin;document.getElementById('pmin-label').textContent='P'+pMin;});
+  pmaxEl.addEventListener('input',()=>{pMax=Math.max(+pmaxEl.value,pMin+1);pmaxEl.value=pMax;document.getElementById('pmax-label').textContent='P'+pMax;});
+}
+
+function applyFilters(){document.getElementById('period-display').textContent=`P${pMin}–P${pMax}`;renderActiveTab();}
+
+// ── MODAL ─────────────────────────────────────────────────
+function openModal(){document.getElementById('modal-overlay').classList.add('show');}
+function closeModal(){document.getElementById('modal-overlay').classList.remove('show');document.getElementById('upload-status').style.display='none';}
+document.getElementById('modal-overlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
+function handleDrop(e){e.preventDefault();document.getElementById('file-drop').classList.remove('drag');const f=e.dataTransfer.files[0];if(f)handleFile(f);}
+function handleFile(file){
+  if(!file)return;
+  const st=document.getElementById('upload-status');st.style.display='block';st.style.color='var(--muted)';st.textContent='Reading...';
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'binary'});
+      const cfS=wb.Sheets['countryFinancials'],invS=wb.Sheets['Inventory Comparison'];
+      if(!cfS||!invS){st.style.color='#e86850';st.textContent='Missing required sheets.';return;}
+      cfData=XLSX.utils.sheet_to_json(cfS).map(r=>[r['Country']||'',+r['Product']||1,
+        parseInt(String(r['Attribute']||'').replace(/\D/g,''))||0,+(r['Contribution Margin']||0),
+        +(r['Units Sold']||0),+(r['Sales Revenue']||0),
+        +(r['Deliverd Manufacturing Cost']||r['Delivered Manufacturing Cost']||0),
+        +(r['Marketing Expense']||0),+(r['Import Tariff']||0)]).filter(r=>r[2]>0);
+      invData=XLSX.utils.sheet_to_json(invS).map(r=>[+r['Product']||1,
+        parseInt(String(r['Attribute']||'').replace(/\D/g,''))||0,
+        +(r['Total Production']||0),+(r['Total Units Sold']||0)]).filter(r=>r[1]>0);
+      RELOC_PERIOD=+(document.getElementById('reloc-period-input').value)||38;
+      st.style.color='#69a053';
+      st.textContent=`Loaded: ${cfData.length} financial + ${invData.length} inventory rows`;
+      setTimeout(()=>{closeModal();renderActiveTab();},1100);
+    }catch(err){st.style.color='#e86850';st.textContent='Error: '+err.message;}
+  };
+  reader.readAsBinaryString(file);
+}
+
+// ── INIT ──────────────────────────────────────────────────
+function init(){setupFilters();document.getElementById('period-display').textContent='P1–P60';renderExecutive();}
+</script>
+</body>
+</html>

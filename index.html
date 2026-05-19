@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Hexmont Market Analysis Dashboard</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><polygon points='50,4 93,27.5 93,72.5 50,96 7,72.5 7,27.5' fill='none' stroke='%23a89060' stroke-width='5'/><polygon points='50,14 83,32.5 83,67.5 50,86 17,67.5 17,32.5' fill='none' stroke='%23a89060' stroke-width='2'/><text x='50' y='68' text-anchor='middle' font-family='serif' font-size='44' font-weight='bold' fill='%23a89060'>H</text></svg>">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -99,21 +100,10 @@ input[type=range]{accent-color:var(--accent);width:100px;}
 .hm-bar{height:100%;border-radius:3px;display:flex;align-items:center;padding-left:6px;}
 .hm-val{font-size:10px;font-weight:600;color:#fff;text-shadow:0 0 4px rgba(0,0,0,.6);}
 
-#modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;}
-#modal-overlay.show{display:flex;}
-#modal{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px;width:390px;}
-#modal h2{font-size:14px;margin-bottom:5px;}
-#modal p{font-size:11px;color:var(--muted);margin-bottom:10px;}
-.sheet-info{background:var(--card);border-radius:6px;padding:9px 11px;font-size:10px;color:var(--muted);margin-bottom:12px;line-height:1.6;}
-.sheet-info strong{color:var(--text);}
 .btn{padding:6px 13px;border-radius:6px;border:none;font-size:11px;cursor:pointer;font-weight:500;}
 .btn-primary{background:var(--accent);color:#111;}
 .btn-secondary{background:var(--card);color:var(--text);border:1px solid var(--border);}
 .btn:hover{opacity:.9;}
-.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;}
-#file-drop{border:2px dashed var(--border);border-radius:7px;padding:16px;text-align:center;color:var(--muted);font-size:11px;cursor:pointer;margin-bottom:10px;}
-#file-drop:hover,#file-drop.drag{border-color:var(--accent);color:var(--text);}
-#file-drop input{display:none;}
 </style>
 </head>
 <body>
@@ -130,10 +120,17 @@ input[type=range]{accent-color:var(--accent);width:100px;}
 
 <div id="app">
   <div id="header">
-    <h1>Hexmont Market &amp; Operations Analysis</h1>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="34" height="34" style="flex-shrink:0;">
+        <polygon points="50,4 93,27.5 93,72.5 50,96 7,72.5 7,27.5" fill="none" stroke="#a89060" stroke-width="5"/>
+        <polygon points="50,14 83,32.5 83,67.5 50,86 17,67.5 17,32.5" fill="none" stroke="#a89060" stroke-width="2"/>
+        <text x="50" y="68" text-anchor="middle" font-family="serif" font-size="44" font-weight="bold" fill="#a89060">H</text>
+      </svg>
+      <h1>Hexmont Market &amp; Operations Analysis</h1>
+    </div>
     <div style="display:flex;gap:8px;align-items:center;">
       <span id="period-display" style="font-size:11px;color:var(--muted);"></span>
-      <button class="btn btn-secondary" onclick="openModal()">&#128196; Update Data</button>
+      <button class="btn btn-secondary" onclick="refreshData()" id="refresh-btn">&#8635; Refresh Data</button>
     </div>
   </div>
 
@@ -310,33 +307,6 @@ input[type=range]{accent-color:var(--accent);width:100px;}
   </div>
 </div>
 
-<!-- MODAL -->
-<div id="modal-overlay">
-  <div id="modal">
-    <h2>&#128196; Update Dashboard Data</h2>
-    <p>Upload a new Excel file from your simulation interface.</p>
-    <div class="sheet-info">
-      <strong>Required sheets:</strong><br>
-      <strong>countryFinancials:</strong> Country, Product, Attribute, Contribution Margin, Units Sold, Sales Revenue, Deliverd Manufacturing Cost, Marketing Expense, Import Tariff<br>
-      <strong>Inventory Comparison:</strong> Product, Attribute, Total Production, Total Units Sold
-    </div>
-    <div class="filter-group" style="margin-bottom:10px;font-size:11px;">
-      <label style="color:var(--muted)">Factory Relocation Period:</label>
-      <input type="number" id="reloc-period-input" value="38" min="1" max="60" style="width:50px;background:var(--card);color:var(--text);border:1px solid var(--border);padding:3px 6px;border-radius:4px;font-size:11px;">
-    </div>
-    <div id="file-drop" onclick="document.getElementById('file-input').click()"
-         ondragover="event.preventDefault();this.classList.add('drag')"
-         ondragleave="this.classList.remove('drag')"
-         ondrop="handleDrop(event)">
-      <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFile(this.files[0])">
-      &#128196; Click to browse or drag &amp; drop Excel file
-    </div>
-    <div id="upload-status" style="font-size:11px;display:none;"></div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-    </div>
-  </div>
-</div>
 
 <script>
 // ── PASSWORD ──────────────────────────────────────────────
@@ -1050,56 +1020,77 @@ function setupFilters(){
 
 function applyFilters(){document.getElementById('period-display').textContent=`P${pMin}–P${pMax}`;renderActiveTab();}
 
-// ── MODAL ─────────────────────────────────────────────────
-function openModal(){document.getElementById('modal-overlay').classList.add('show');}
-function closeModal(){document.getElementById('modal-overlay').classList.remove('show');document.getElementById('upload-status').style.display='none';}
-document.getElementById('modal-overlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
-function handleDrop(e){e.preventDefault();document.getElementById('file-drop').classList.remove('drag');const f=e.dataTransfer.files[0];if(f)handleFile(f);}
-function handleFile(file){
-  if(!file)return;
-  const st=document.getElementById('upload-status');st.style.display='block';st.style.color='var(--muted)';st.textContent='Reading...';
-  const reader=new FileReader();
-  reader.onload=e=>{
-    try{
-      const wb=XLSX.read(e.target.result,{type:'binary'});
-      const cfS=wb.Sheets['countryFinancials'],invS=wb.Sheets['Inventory Comparison'];
-      if(!cfS||!invS){st.style.color='#e86850';st.textContent='Missing required sheets.';return;}
-      cfData=XLSX.utils.sheet_to_json(cfS).map(r=>[r['Country']||'',+r['Product']||1,
-        parseInt(String(r['Attribute']||'').replace(/\D/g,''))||0,+(r['Contribution Margin']||0),
-        +(r['Units Sold']||0),+(r['Sales Revenue']||0),
-        +(r['Deliverd Manufacturing Cost']||r['Delivered Manufacturing Cost']||0),
-        +(r['Marketing Expense']||0),+(r['Import Tariff']||0)]).filter(r=>r[2]>0);
-      invData=XLSX.utils.sheet_to_json(invS).map(r=>[+r['Product']||1,
-        parseInt(String(r['Attribute']||'').replace(/\D/g,''))||0,
-        +(r['Total Production']||0),+(r['Total Units Sold']||0)]).filter(r=>r[1]>0);
-      RELOC_PERIOD=+(document.getElementById('reloc-period-input').value)||38;
-      // Recompute range from new data
+function refreshData(){
+  const btn=document.getElementById('refresh-btn');
+  btn.textContent='⟳ Refreshing…';btn.disabled=true;
+  fetchSheetData().finally(()=>{btn.textContent='⟳ Refresh Data';btn.disabled=false;});
+}
+
+// ── GITHUB DATA FETCH ────────────────────────────────────
+// Fetches data.xlsx from the same repo on load.
+// Update period data by pushing a new data.xlsx to the repo via Colab.
+async function fetchSheetData(){
+  const statusEl=document.createElement('div');
+  statusEl.style.cssText='position:fixed;bottom:12px;right:16px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:7px 12px;font-size:11px;color:var(--muted);z-index:50;';
+  statusEl.textContent='⟳ Loading latest data…';
+  document.body.appendChild(statusEl);
+  try{
+    const url = './financial_model_pivot_report.xlsx?t='+Date.now();
+    console.log('Fetching from:', url);
+    const resp = await fetch(url);
+    if(!resp.ok) throw new Error('File not found');
+    const buf = await resp.arrayBuffer();
+    const wb = XLSX.read(buf, {type:'array'});
+    const cfS  = wb.Sheets['countryFinancials'];
+    const invS = wb.Sheets['Inventory Comparison'];
+    if(!cfS||!invS) throw new Error('Missing sheets in data.xlsx');
+    const newCF = XLSX.utils.sheet_to_json(cfS).map(r=>[
+      r['Country']||'', +r['Product']||1,
+      parseInt(String(r['Attribute']||'').replace(/\D/g,''))||0,
+      +(r['Contribution Margin']||0), +(r['Units Sold']||0), +(r['Sales Revenue']||0),
+      +(r['Deliverd Manufacturing Cost']||r['Delivered Manufacturing Cost']||0),
+      +(r['Marketing Expense']||0), +(r['Import Tariff']||0)
+    ]).filter(r=>r[2]>0);
+    const newINV = XLSX.utils.sheet_to_json(invS).map(r=>[
+      +r['Product']||1,
+      parseInt(String(r['Attribute']||'').replace(/\D/g,''))||0,
+      +(r['Total Production']||0), +(r['Total Units Sold']||0)
+    ]).filter(r=>r[1]>0);
+    if(newCF.length>0){
+      cfData=newCF; invData=newINV;
       pMax=Math.max(...cfData.filter(r=>r[3]!==0||r[5]!==0||r[4]!==0).map(r=>r[2]));
       pMin=1;
       const pmx=document.getElementById('pmax'),pmn=document.getElementById('pmin');
-      pmx.max=pMax; pmx.value=pMax; pmn.max=pMax; pmn.value=1;
+      pmx.max=pMax;pmx.value=pMax;pmn.max=pMax;pmn.value=1;
       document.getElementById('pmax-label').textContent='P'+pMax;
       document.getElementById('pmin-label').textContent='P1';
       document.getElementById('period-display').textContent='P1–P'+pMax;
-      st.style.color='#69a053';
-      st.textContent=`Loaded: ${cfData.length} financial + ${invData.length} inventory rows`;
-      setTimeout(()=>{closeModal();renderActiveTab();},1100);
-    }catch(err){st.style.color='#e86850';st.textContent='Error: '+err.message;}
-  };
-  reader.readAsBinaryString(file);
+      statusEl.style.color='#69a053';
+      statusEl.textContent=`✓ Live data loaded — ${newCF.length} rows through P${pMax}`;
+    } else {
+      throw new Error('No data rows parsed');
+    }
+  } catch(e){
+    statusEl.style.color='#e86850';
+    statusEl.textContent='✗ Fetch failed — see console for details';
+    console.error('fetchSheetData error:', e.message);
+    console.error('Are you on the live GitHub Pages URL? file:// will not work.');
+  }
+  setTimeout(()=>statusEl.remove(), 4000);
+  renderActiveTab();
 }
 
 // ── INIT ──────────────────────────────────────────────────
 function init(){
   setupFilters();
-  // Set sliders to actual data range
   const pmaxEl=document.getElementById('pmax');
   const pminEl=document.getElementById('pmin');
   pmaxEl.max=pMax; pmaxEl.value=pMax;
   pminEl.max=pMax;
   document.getElementById('pmax-label').textContent='P'+pMax;
   document.getElementById('period-display').textContent='P1–P'+pMax;
-  renderExecutive();
+  renderExecutive();        // show embedded data immediately
+  fetchSheetData();         // then silently update from Google Drive
 }
 </script>
 </body>

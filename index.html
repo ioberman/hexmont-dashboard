@@ -1865,10 +1865,15 @@ function extractCompData(wb){
     return isFinite(n)?n:null;
   };
 
-  // Dynamically determine nQ: scan first revenue row (row index 4, company 0) for last non-null column
+  // Dynamically determine nQ: require ALL 5 companies to have meaningful revenue (>$500K)
+  // Checking only company 1 (old approach) misses quarters where C2-C5 are zero/corrupt.
+  // Revenue rows are indices 4-8 (one per company). Threshold 500 = $500K in $000s units.
   let nQ=0;
-  for(let q=1;q<=100;q++){
-    if(safeC(4,q)!=null) nQ=q; else if(q>nQ+5) break; // stop if 5+ consecutive empty cols
+  for(let q=1;q<=200;q++){
+    const revenues=Array.from({length:5},(_,c)=>safeC(4+c,q));
+    const allValid=revenues.every(v=>v!=null&&v>500);
+    if(allValid) nQ=q;
+    else if(q>nQ+5) break; // stop after 5 consecutive quarters that fail the check
   }
   if(nQ===0) nQ=11; // fallback
 

@@ -100,12 +100,30 @@ input[type=range]{accent-color:var(--accent);width:100px;}
 .hm-bar{height:100%;border-radius:3px;display:flex;align-items:center;padding-left:6px;}
 .hm-val{font-size:10px;font-weight:600;color:#fff;text-shadow:0 0 4px rgba(0,0,0,.6);}
 
+/* Pricing data table modal */
+#pr-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:900;display:none;align-items:center;justify-content:center;}
+#pr-modal-backdrop.open{display:flex;}
+#pr-modal{background:var(--panel);border:1px solid var(--border);border-radius:12px;width:92vw;max-width:1300px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,.5);}
+#pr-modal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0;}
+#pr-modal-header h3{font-size:13px;font-weight:600;color:var(--text);}
+#pr-modal-close{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:2px 6px;border-radius:4px;line-height:1;}
+#pr-modal-close:hover{background:var(--card);color:var(--text);}
+#pr-modal-source{padding:8px 18px;font-size:10px;color:var(--muted);border-bottom:1px solid var(--border);flex-shrink:0;}
+#pr-modal-body{overflow:auto;flex:1;padding:0;}
+#pr-modal-body table{width:100%;border-collapse:collapse;}
+#pr-modal-body th{position:sticky;top:0;z-index:2;background:var(--card);font-size:10px;font-weight:600;color:var(--muted);padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap;}
+#pr-modal-body th.left{text-align:left;}
+#pr-modal-body th.right{text-align:right;}
+#pr-modal-body td{font-size:11px;padding:5px 10px;border-bottom:1px solid rgba(255,255,255,.04);white-space:nowrap;}
+#pr-modal-body td.left{text-align:left;font-weight:600;}
+#pr-modal-body td.right{text-align:right;}
+#pr-modal-body tbody tr:hover{background:rgba(255,255,255,.03);}
+
 .btn{padding:6px 13px;border-radius:6px;border:none;font-size:11px;cursor:pointer;font-weight:500;}
 .btn-primary{background:var(--accent);color:#111;}
 .btn-secondary{background:var(--card);color:var(--text);border:1px solid var(--border);}
 .btn:hover{opacity:.9;}
 </style>
-</head>
 <body>
 
 <div id="pwd-screen">
@@ -213,7 +231,7 @@ input[type=range]{accent-color:var(--accent);width:100px;}
       <div class="chart-row" style="min-height:230px;flex:none;">
         <div class="chart-card" style="flex:1;">
           <div class="chart-title">Revenue vs Competitors</div>
-          <div class="chart-subtitle">Source: COMPETITORS sheet — quarterly summaries (11 quarters), in $000s USD</div>
+          <div class="chart-subtitle">Source: COMPETITORS sheet — quarterly summaries, in $000s USD (quarters auto-detected from live file)</div>
           <div class="chart-wrap" style="min-height:200px;"><canvas id="ci-rev-chart"></canvas></div>
         </div>
         <div class="chart-card" style="flex:1;">
@@ -225,7 +243,7 @@ input[type=range]{accent-color:var(--accent);width:100px;}
       <div class="chart-row" style="min-height:230px;flex:none;">
         <div class="chart-card" style="flex:1;">
           <div class="chart-title">Market Share by Market</div>
-          <div class="chart-subtitle">Source: COMPETITORS sheet unit sales ÷ world total — quarterly (11 quarters), select market</div>
+          <div class="chart-subtitle">Source: COMPETITORS sheet unit sales ÷ world total — quarterly (auto-detected), select market</div>
           <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;flex-shrink:0;" id="ci-mkt-btns"></div>
           <div class="chart-wrap" style="min-height:185px;"><canvas id="ci-share-chart"></canvas></div>
         </div>
@@ -246,37 +264,42 @@ input[type=range]{accent-color:var(--accent);width:100px;}
 
     <!-- PRICING & COST ENGINE -->
     <div id="tab-pricing" class="tab-pane" style="overflow-y:auto;">
-      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;margin-bottom:4px;">
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;margin-bottom:4px;flex-wrap:wrap;">
         <span style="font-size:11px;color:var(--muted);font-weight:500;">Product:</span>
         <button class="dm-prod-btn active" data-pprod="1" onclick="setPricingProd(1)">Product 1</button>
         <button class="dm-prod-btn" data-pprod="2" onclick="setPricingProd(2)">Product 2</button>
+        <div style="margin-left:auto;display:flex;gap:6px;">
+          <button class="btn btn-secondary" onclick="openPricingModal()" id="pr-table-btn" style="font-size:10px;padding:4px 10px;">&#9776; View Data Table</button>
+        </div>
       </div>
       <div class="kpi-row" id="pricing-kpis"></div>
+
       <div class="chart-row" style="min-height:240px;flex:none;">
         <div class="chart-card" style="flex:2;">
           <div class="chart-title">Our Price vs Competitor Avg — by Market</div>
-          <div class="chart-subtitle">Latest period — select market to see trend below</div>
-          <div class="chart-wrap" style="min-height:210px;"><canvas id="pr-bar-chart"></canvas></div>
+          <div class="chart-subtitle">Latest period, prices converted to USD via spot rate &mdash; <strong style="color:var(--accent)">Source:</strong> <code>our_price</code> = row 13/23 of each period sheet (Company 1 actual price); <code>comp avg</code> = mean of rows 14–17 / 24–27 (Companies 2–5)</div>
+          <div class="chart-wrap" style="min-height:200px;"><canvas id="pr-bar-chart"></canvas></div>
         </div>
         <div class="chart-card" style="flex:1;">
           <div class="chart-title">Price Index vs Market Avg</div>
-          <div class="chart-subtitle">Our price / market avg — above 1.0 = premium positioning</div>
-          <div class="chart-wrap" style="min-height:210px;"><canvas id="pr-index-chart"></canvas></div>
+          <div class="chart-subtitle">Our price ÷ avg of 4 competitors (local currency, per market) &mdash; above 1.0 = premium. <em>KPI above is cross-market USD average; markets with below-index pricing will pull it toward 1.0.</em></div>
+          <div class="chart-wrap" style="min-height:200px;"><canvas id="pr-index-chart"></canvas></div>
         </div>
       </div>
       <div class="chart-row" style="min-height:220px;flex:none;">
         <div class="chart-card">
           <div class="chart-title">Price Trend vs Competitors — select market</div>
+          <div class="chart-subtitle" style="margin-bottom:4px;"><strong style="color:var(--accent)">Source:</strong> <code>our_price</code> = Revenue÷Units; <code>comp avg</code> = mean of 4 competitors (rows 13–17/23–27, pos [1–4]) in local currency &mdash; relocation line at P<span id="pr-reloc-label"></span></div>
           <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;flex-shrink:0;" id="pr-mkt-btns"></div>
-          <div class="chart-wrap" style="min-height:180px;"><canvas id="pr-trend-chart"></canvas></div>
+          <div class="chart-wrap" style="min-height:165px;"><canvas id="pr-trend-chart"></canvas></div>
         </div>
       </div>
       <div class="chart-row" style="min-height:200px;flex:none;">
         <div class="chart-card">
           <div class="chart-title">Price (USD) vs VC Per Unit Next Period (USD)</div>
           <div class="chart-subtitle">
-            Prices converted to USD via spot rate &mdash; gap = gross contribution per unit &nbsp;|&nbsp;
-            <span style="color:var(--muted);font-size:9px;">VC = (Projected Variable Cost in factory currency ÷ Spot Rate) ÷ Next Period Production Qty &mdash; provided directly by simulation</span>
+            Prices converted to USD via spot rate (row 49) &mdash; gap = gross contribution per unit &nbsp;|&nbsp;
+            <strong style="color:var(--accent)">VC source:</strong> <code>vc_unit_next_p1/p2</code> from rows 260–261 of each period sheet in simulation — factory VC ÷ next period production (USD)
           </div>
           <div class="chart-wrap" style="min-height:170px;"><canvas id="pr-vc-chart"></canvas></div>
         </div>
@@ -808,11 +831,15 @@ function renderOps(){
   const inv=filteredINV();
   const periods=getInvPeriods();
   const products=[...selectedProducts].sort();
-  // Starting inventory from P1 simulation data (actual, not hardcoded)
-  const INIT={
-    1: SIM_DATA[1]?.ops.inv_qty_p1 || 0,
-    2: SIM_DATA[1]?.ops.inv_qty_p2 || 0,
-  };
+  // True pre-game (P0) starting inventory: reverse P1's production−sold delta
+  // from the P1 ending balance in SIM_DATA[1].ops.inv_qty_pN.
+  // Using P1 ending directly as seed would double-count P1's delta.
+  const INIT={};
+  [1,2].forEach(prod=>{
+    const p1row=invData.find(r=>r[0]===prod&&r[1]===1);
+    const p1end=SIM_DATA[1]?.ops['inv_qty_p'+prod]||0;
+    INIT[prod]=p1row ? p1end-(p1row[2]-p1row[3]) : p1end;
+  });
   const PCOL={1:'#5b9bd5',2:'#e7cc54'};
   const PVS={p1:'#4472c4',s1:'#76b7b2',p2:'#e7cc54',s2:'#e86850'};
 
@@ -922,11 +949,14 @@ function renderDriverRankings(sorted, markets){
   destroyChart('dm-driver-chart');
   const ctx=document.getElementById('dm-driver-chart').getContext('2d');
   const shortMkt=m=>m.replace('United States','US').replace('United Kingdom','UK');
+  // b_price is inherently negative (higher price → lower share); keep its sign
+  // so the bar goes negative and the direction is unambiguous.
+  // Quality, marketing, green are positive drivers — shown as magnitude.
   const driverDefs=[
-    {key:'b_price',    label:'Price Sensitivity', color:'#e86850', abs:true},
-    {key:'b_quality',  label:'Quality',           color:'#5b9bd5'},
-    {key:'b_marketing',label:'Marketing',         color:'#e7cc54'},
-    {key:'b_green',    label:'Green',             color:'#69a053'},
+    {key:'b_price',    label:'Price (↑price = ↓share)', color:'#e86850', signed:true},
+    {key:'b_quality',  label:'Quality',                 color:'#5b9bd5'},
+    {key:'b_marketing',label:'Marketing',               color:'#e7cc54'},
+    {key:'b_green',    label:'Green',                   color:'#69a053'},
   ];
   charts['dm-driver-chart']=new Chart(ctx,{
     type:'bar',
@@ -934,7 +964,7 @@ function renderDriverRankings(sorted, markets){
       labels:markets.map(shortMkt),
       datasets:driverDefs.map(d=>({
         label:d.label,
-        data:sorted.map(r=>+(Math.abs(r[d.key])).toFixed(3)),
+        data:sorted.map(r=>+(d.signed ? r[d.key] : Math.abs(r[d.key])).toFixed(3)),
         backgroundColor:d.color+'bb',borderColor:d.color,borderWidth:1,borderRadius:2,
       }))
     },
@@ -947,7 +977,7 @@ function renderDriverRankings(sorted, markets){
       scales:{
         x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#b4b4b4',font:{size:9}}},
         y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#b4b4b4',font:{size:9}},
-           title:{display:true,text:'Coefficient (absolute value)',color:'#b4b4b4',font:{size:9}}}
+           title:{display:true,text:'Coefficient (price signed; others = magnitude)',color:'#b4b4b4',font:{size:9}}}
       }
     }
   });
@@ -1166,10 +1196,29 @@ function setPricingProd(p){
 // ── COMPETITIVE INTELLIGENCE ─────────────────────────────
 function renderCompetitive(){
   setupCIFilters();
+
+  // Show/clear warning banner depending on whether live XLSM loaded
+  let banner=document.getElementById('ci-xlsm-warning');
+  if(window._simLoaded===false){
+    if(!banner){
+      banner=document.createElement('div');
+      banner.id='ci-xlsm-warning';
+      banner.style.cssText='background:#2a1a0a;border:1px solid #e86850;border-radius:6px;padding:8px 12px;font-size:11px;color:#e86850;flex-shrink:0;margin-bottom:6px;';
+      banner.innerHTML='⚠ <strong>simulation_out.xlsx not loaded</strong> — quarterly Revenue, Market Share, and Unit Sales charts are showing embedded data only (Q1–Q11). '
+        +'To update: ensure <code style="background:rgba(255,255,255,.1);padding:1px 4px;border-radius:3px;">simulation_out.xlsx</code> is deployed to the same directory as <code style="background:rgba(255,255,255,.1);padding:1px 4px;border-radius:3px;">index.html</code>, then click Refresh Data. '
+        +'Net Profit and Equity charts are unaffected (sourced from embedded SIM_DATA).';
+      const tab=document.getElementById('tab-competitive');
+      tab.insertBefore(banner,tab.firstChild);
+    }
+  } else if(banner){
+    banner.remove();
+  }
   const cd=COMP_DATA.comp;
 
-  // Revenue only has quarterly COMPETITORS data (11 quarters)
-  const nQ=cd.revenue[0].filter(v=>v!=null).length;
+  // Revenue only has quarterly COMPETITORS data — detect actual length from non-null values
+  const nQ=cd.revenue[0].filter(v=>v!=null).length||11;
+  // DIAGNOSTIC: if nQ=11 and simLoaded=false, simulation_out.xlsx didn't load — check console for HTTP error
+  console.log(`[CI] Quarters detected: ${nQ} — source: ${window._simLoaded?'live XLSM':'embedded fallback'}`);
   const qs=Array.from({length:nQ},(_,i)=>'Q'+(i+1));
   const latestQ=nQ-1;
 
@@ -1272,7 +1321,7 @@ function renderCIShare(){
   const worldKey=ciProduct===1?'p1_world':'p2_world';
   const worldArr=COMP_DATA[worldKey][ciMarket]||[];
   const arr=cd[prod+'_sales_'+ciMarket.toLowerCase()]||[];
-  const nQ=arr[0]?.length||worldArr.length||11;
+  const nQ=((arr[0]||[]).filter(v=>v!=null).length)||((worldArr||[]).filter(v=>v!=null).length)||11;
   const qs=Array.from({length:nQ},(_,i)=>'Q'+(i+1));
 
   destroyChart('ci-share-chart');
@@ -1309,30 +1358,48 @@ function renderPricing(){
   const vcNext=pricingProduct===1?sd.ops.vc_unit_next_p1:sd.ops.vc_unit_next_p2;
   const compPricesLastP=sd['comp_prices_'+prod];
 
-  // Our price per market in USD
+  // Set relocation label in subtitle
+  const relocLbl=document.getElementById('pr-reloc-label');
+  if(relocLbl) relocLbl.textContent=RELOC_PERIOD;
+
+  // Our price per market in USD (our_price = Revenue÷Units, local currency → USD via spot rate)
   const ourByMktUSD=CI_MARKETS.map(m=>{
     const p=sd.our_price[prod][m]||0;
     return p?+(p/(spotRates[m]||1)).toFixed(2):0;
   });
-  // Competitor avg per market in USD
+  // BUG FIX: position [0] in comp_prices arrays is Hexmont's own entry in the sim sheet.
+  // Use .slice(1) to exclude it and average only the 4 true competitors.
   const compAvgByMktUSD=CI_MARKETS.map(m=>{
-    const vals=(compPricesLastP[m]||[]).filter(v=>v>0);
+    const vals=(compPricesLastP[m]||[]).slice(1).filter(v=>v>0);
     if(!vals.length) return 0;
     const avgLocal=vals.reduce((s,v)=>s+v,0)/vals.length;
     return+(avgLocal/(spotRates[m]||1)).toFixed(2);
   });
+  // Per-market index in local currency (most accurate premium signal, not diluted by FX averaging)
+  const idxByMktLocal=CI_MARKETS.map(m=>{
+    const ourLocal=sd.our_price[prod][m]||0;
+    const compVals=(compPricesLastP[m]||[]).slice(1).filter(v=>v>0);
+    if(!compVals.length||!ourLocal) return null;
+    const compAvgLocal=compVals.reduce((s,v)=>s+v,0)/compVals.length;
+    return compAvgLocal?+(ourLocal/compAvgLocal).toFixed(3):null;
+  });
 
+  // Cross-market USD averages for headline KPI
   const validOur=ourByMktUSD.filter(v=>v>0);
   const validComp=compAvgByMktUSD.filter(v=>v>0);
   const avgOurPrice=validOur.reduce((s,v)=>s+v,0)/(validOur.length||1);
   const avgCompPrice=validComp.reduce((s,v)=>s+v,0)/(validComp.length||1);
   const priceIdx=avgCompPrice?avgOurPrice/avgCompPrice:0;
+  // Median per-market local-currency index — less diluted by FX and market-mix effects
+  const validIdx=idxByMktLocal.filter(v=>v!=null).sort((a,b)=>a-b);
+  const medIdx=validIdx.length?validIdx[Math.floor(validIdx.length/2)]:null;
 
   document.getElementById('pricing-kpis').innerHTML=`
-    <div class="kpi-card"><div class="kpi-label">Our Avg Price P${lastP}</div><div class="kpi-value">${fmt$(avgOurPrice)}</div><div class="kpi-sub">USD avg across markets</div></div>
-    <div class="kpi-card"><div class="kpi-label">Market Avg Price</div><div class="kpi-value">${fmt$(avgCompPrice)}</div><div class="kpi-sub">USD competitor avg across markets</div></div>
-    <div class="kpi-card"><div class="kpi-label">Price Index</div><div class="kpi-value" style="color:${priceIdx>1?'#69a053':priceIdx<0.95?'#e86850':'var(--text)'}">${priceIdx.toFixed(2)}x</div><div class="kpi-sub">our USD avg / competitor USD avg</div></div>
-    <div class="kpi-card"><div class="kpi-label">VC / Unit Next Period</div><div class="kpi-value">${fmt$(vcNext)}</div><div class="kpi-sub">variable cost forecast (USD)</div></div>
+    <div class="kpi-card"><div class="kpi-label">Our Avg Price P${lastP}</div><div class="kpi-value">${fmt$(avgOurPrice)}</div><div class="kpi-sub">USD avg across markets (spot rate converted)</div></div>
+    <div class="kpi-card"><div class="kpi-label">Comp Avg Price</div><div class="kpi-value">${fmt$(avgCompPrice)}</div><div class="kpi-sub">USD avg of 4 competitors (excl. Hexmont row)</div></div>
+    <div class="kpi-card"><div class="kpi-label">Price Index (USD avg)</div><div class="kpi-value" style="color:${priceIdx>1?'#69a053':priceIdx<0.95?'#e86850':'var(--text)'}">${priceIdx.toFixed(2)}x</div><div class="kpi-sub">cross-market USD avg — below-index markets pull this toward 1.0</div></div>
+    <div class="kpi-card"><div class="kpi-label">Median Mkt Index</div><div class="kpi-value" style="color:${medIdx&&medIdx>1?'#69a053':medIdx&&medIdx<0.95?'#e86850':'var(--text)'}">${medIdx!=null?medIdx.toFixed(2)+'x':'—'}</div><div class="kpi-sub">median per-market local-currency index (truer premium signal)</div></div>
+    <div class="kpi-card"><div class="kpi-label">VC / Unit Next Period</div><div class="kpi-value">$${vcNext.toFixed(2)}</div><div class="kpi-sub">rows 260–261 simulation sheet (USD)</div></div>
   `;
 
   // Bar chart: our price vs competitor avg by market — both in USD
@@ -1350,8 +1417,10 @@ function renderPricing(){
     }
   });
 
-  // Price index by market — dimensionless so already apples-to-apples
-  const idxByMkt=CI_MARKETS.map((m,i)=>compAvgByMktUSD[i]?+(ourByMktUSD[i]/compAvgByMktUSD[i]).toFixed(3):null);
+  // Price index by market — use local-currency ratio (most accurate, no FX distortion)
+  const idxByMkt=idxByMktLocal;
+  const validIdxVals=idxByMkt.filter(v=>v!=null);
+  const idxMin=validIdxVals.length?Math.max(0,Math.floor((Math.min(...validIdxVals)-0.05)*20)/20):0.8;
   destroyChart('pr-index-chart');
   charts['pr-index-chart']=new Chart(document.getElementById('pr-index-chart').getContext('2d'),{
     type:'bar',data:{labels:CI_MARKETS,datasets:[{
@@ -1364,7 +1433,7 @@ function renderPricing(){
       scales:{
         x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#b4b4b4',font:{size:9}}},
         y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#b4b4b4',font:{size:9},callback:v=>v?.toFixed(2)+'x'},
-           min:0.8}
+           min:idxMin}
       }
     }
   });
@@ -1420,6 +1489,58 @@ function renderPricingTrend(){
       {label:'Comp Avg', data:compAvgSeries, borderColor:'#5b9bd5',backgroundColor:'#5b9bd5',borderWidth:1.5,pointRadius:0.5,tension:.3,spanGaps:true}
     ]},options:opts
   });
+}
+
+function openPricingModal(){
+  document.getElementById('pr-modal-title').textContent=
+    'Pricing Data Table — Product '+pricingProduct;
+  renderPricingTable();
+  document.getElementById('pr-modal-backdrop').classList.add('open');
+}
+
+function closePricingModal(){
+  document.getElementById('pr-modal-backdrop').classList.remove('open');
+}
+
+// Close on Escape key
+document.addEventListener('keydown',e=>{if(e.key==='Escape') closePricingModal();});
+
+function renderPricingTable(){
+  const prod='p'+pricingProduct;
+  const body=document.getElementById('pr-modal-body');
+  if(!body) return;
+
+  const mkts=CI_MARKETS;
+  let html=`<table><thead><tr>
+    <th class="left">Period</th>
+    <th class="right">JPY Spot</th>`;
+  mkts.forEach(m=>{
+    html+=`<th class="right">${m}<br><span style="font-weight:400;font-size:9px;">Ours</span></th>`;
+    html+=`<th class="right">${m}<br><span style="font-weight:400;font-size:9px;">Comp Avg</span></th>`;
+    html+=`<th class="right">${m}<br><span style="font-weight:400;font-size:9px;">Index</span></th>`;
+  });
+  html+=`<th class="right">VC/Unit<br><span style="font-weight:400;font-size:9px;">Next (USD)</span></th></tr></thead><tbody>`;
+
+  SIM_PERIODS.forEach(p=>{
+    const sd=SIM_DATA[p];if(!sd) return;
+    const cp=sd['comp_prices_'+prod];
+    const vc=pricingProduct===1?sd.ops.vc_unit_next_p1:sd.ops.vc_unit_next_p2;
+    html+=`<tr><td class="left">P${p}</td>`;
+    html+=`<td class="right" style="color:var(--muted)">¥${sd.spot_rates.Japan||'—'}</td>`;
+    mkts.forEach(m=>{
+      const ourLocal=sd.our_price[prod][m]||0;
+      const compVals=(cp[m]||[]).slice(1).filter(v=>v>0);
+      const compAvgLocal=compVals.length?compVals.reduce((s,v)=>s+v,0)/compVals.length:0;
+      const idx=compAvgLocal&&ourLocal?ourLocal/compAvgLocal:null;
+      const idxColor=idx==null?'var(--muted)':idx>1.05?'#69a053':idx<0.95?'#e86850':'var(--text)';
+      html+=`<td class="right">${fmt$0(ourLocal)||'—'}</td>`;
+      html+=`<td class="right" style="color:var(--muted)">${fmt$0(compAvgLocal)||'—'}</td>`;
+      html+=`<td class="right" style="color:${idxColor};font-weight:600">${idx!=null?idx.toFixed(2)+'x':'—'}</td>`;
+    });
+    html+=`<td class="right">${vc!=null?'$'+vc.toFixed(2):'—'}</td></tr>`;
+  });
+  html+=`</tbody></table>`;
+  body.innerHTML=html;
 }
 
 // ── COMPANY HEALTH ────────────────────────────────────────
@@ -1618,7 +1739,7 @@ function refreshData(){
 }
 
 // ── SIMULATION FILE FETCH ─────────────────────────────────
-// Fetches simulation_out.xlsm from the repo and rebuilds SIM_DATA + COMP_DATA.
+// Fetches simulation_out.xlsx from the repo and rebuilds SIM_DATA + COMP_DATA.
 // This keeps Competitive Intelligence, Pricing & Cost, and Company Health live.
 
 function safeNum(v){
@@ -1686,11 +1807,12 @@ function extractSimData(wb){
       p2:{Japan:r(151,1),Mexico:r(152,1),China:r(153,1),UK:r(154,1),Germany:r(155,1),US:r(156,1)}
     };
 
-    // Our price = rev/units (local currency)
+    // Our price = Company 1 row in the price table (row 13 for P1, row 23 for P2), same columns as comp_prices
+    // This is the actual set price, not derived from revenue÷units which breaks when supply < demand
     const our_price={p1:{},p2:{}};
-    MKTS.forEach(m=>{
-      our_price.p1[m]=dem.p1[m]?+(rev.p1[m]/dem.p1[m]).toFixed(2):0;
-      our_price.p2[m]=dem.p2[m]?+(rev.p2[m]/dem.p2[m]).toFixed(2):0;
+    MKTS.forEach((m,j)=>{
+      our_price.p1[m]=r(13,j+1);
+      our_price.p2[m]=r(23,j+1);
     });
 
     const income={
@@ -1730,17 +1852,31 @@ function extractCompData(wb){
   const ws=wb.Sheets['COMPETITORS'];
   if(!ws) return null;
   const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
-  const safe=(row0,col1)=>safeNum(rows[row0]?.[col1]);
-  const series=(startRow0,n=5,nQ=11)=>{
+  // Use a local safe that returns null for missing cells (NOT 0), so we can detect data boundaries
+  const safeC=(row0,col1)=>{
+    const v=rows[row0]?.[col1];
+    if(v===null||v===undefined||v==='') return null;
+    const n=+v;
+    return isFinite(n)?n:null;
+  };
+
+  // Dynamically determine nQ: scan first revenue row (row index 4, company 0) for last non-null column
+  let nQ=0;
+  for(let q=1;q<=100;q++){
+    if(safeC(4,q)!=null) nQ=q; else if(q>nQ+5) break; // stop if 5+ consecutive empty cols
+  }
+  if(nQ===0) nQ=11; // fallback
+
+  const series=(startRow0,n=5)=>{
     const result=[];
     for(let c=0;c<n;c++){
       const vals=[];
-      for(let q=1;q<=nQ;q++) vals.push(safe(startRow0+c,q));
+      for(let q=1;q<=nQ;q++) vals.push(safeC(startRow0+c,q));
       result.push(vals);
     }
     return result;
   };
-  const worldRow=(row0,nQ=11)=>Array.from({length:nQ},(_,i)=>safe(row0,i+1));
+  const worldRow=(row0)=>Array.from({length:nQ},(_,i)=>safeC(row0,i+1));
 
   return {
     comp:{
@@ -1767,9 +1903,9 @@ function extractCompData(wb){
 
 async function fetchSimData(){
   try{
-    const url='./simulation_out.xlsm?t='+Date.now();
+    const url='./simulation_out.xlsx?t='+Date.now();
     const resp=await fetch(url);
-    if(!resp.ok) throw new Error('simulation_out.xlsm not found');
+    if(!resp.ok) throw new Error(`HTTP ${resp.status} — file not found at ${url.split('?')[0]}`);
     const buf=await resp.arrayBuffer();
     const wb=XLSX.read(buf,{type:'array'});
     const newSim=extractSimData(wb);
@@ -1785,10 +1921,13 @@ async function fetchSimData(){
         Object.keys(COMP_DATA).forEach(k=>delete COMP_DATA[k]);
         Object.assign(COMP_DATA,newComp);
       }
+      window._simLoaded=true;
       console.log('✓ Simulation data refreshed — P1–P'+periods[periods.length-1]);
     }
   } catch(e){
-    console.warn('fetchSimData: could not load simulation_out.xlsm —', e.message);
+    window._simLoaded=false;
+    console.warn('fetchSimData failed —', e.message);
+    console.warn('Fix: ensure simulation_out.xlsx is in the same directory as index.html on the server.');
   }
 }
 
@@ -1855,10 +1994,40 @@ function init(){
   pminEl.max=pMax;
   document.getElementById('pmax-label').textContent='P'+pMax;
   document.getElementById('period-display').textContent='P1–P'+pMax;
+
+  // Fix embedded SIM_DATA snapshot: our_price was derived as revenue÷units which breaks
+  // when supply < demand. Company 1 (us) is always position [0] in comp_prices, so read directly.
+  const MKTS_FIX=['Japan','Mexico','China','UK','Germany','US'];
+  Object.keys(SIM_DATA).forEach(p=>{
+    const sd=SIM_DATA[p];
+    if(!sd) return;
+    MKTS_FIX.forEach(m=>{
+      const v1=sd.comp_prices_p1?.[m]?.[0];
+      const v2=sd.comp_prices_p2?.[m]?.[0];
+      if(v1) sd.our_price.p1[m]=v1;
+      if(v2) sd.our_price.p2[m]=v2;
+    });
+  });
+
   renderExecutive();        // show embedded data immediately
   fetchSheetData();         // fetch financial_model_pivot_report.xlsx
-  fetchSimData();           // fetch simulation_out.xlsm for CI/Pricing/Health tabs
+  fetchSimData();           // fetch simulation_out.xlsx for CI/Pricing/Health tabs
 }
 </script>
+<!-- Pricing data table modal -->
+<div id="pr-modal-backdrop" onclick="if(event.target===this)closePricingModal()">
+  <div id="pr-modal">
+    <div id="pr-modal-header">
+      <h3 id="pr-modal-title">Pricing Data Table</h3>
+      <button id="pr-modal-close" onclick="closePricingModal()">&#10005;</button>
+    </div>
+    <div id="pr-modal-source">
+      <strong>Source:</strong> <code>our_price</code> = row 13 (P1) / row 23 (P2) of each period sheet — Company 1's actual set price (local currency) &nbsp;·&nbsp;
+      <code>comp avg</code> = mean of rows 14–17 / 24–27 (Companies 2–5, positions [1–4]) &nbsp;·&nbsp;
+      Spot rates from row 49 &nbsp;·&nbsp; VC/unit from rows 260–261
+    </div>
+    <div id="pr-modal-body"></div>
+  </div>
+</div>
 </body>
 </html>

@@ -1752,8 +1752,13 @@ function extractSimData(wb){
   const MKTS=['Japan','Mexico','China','UK','Germany','US'];
   const newSim={};
 
-  // Find which periods have data
-  for(let p=1;p<=75;p++){
+  // Derive period list dynamically from sheet names — handles any max period, no hardcoded cap
+  const periods=wb.SheetNames
+    .filter(n=>/^P\d+$/.test(n))
+    .map(n=>+n.slice(1))
+    .sort((a,b)=>a-b);
+
+  for(const p of periods){
     const ws=wb.Sheets['P'+p];
     if(!ws) continue;
     const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});

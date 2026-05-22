@@ -920,7 +920,12 @@ function setDemandProduct(p){
 
 function renderDemand(){
   const prodLabel=dmProduct===1?'Product 1':'Product 2';
-  const rows=DM_P1.filter(r=>r.product===prodLabel);
+  // Apply country filter — map market names to match selectedCountries keys
+  const mktToCountry={'United States':'US','United Kingdom':'UK'};
+  const rows=DM_P1.filter(r=>r.product===prodLabel).filter(r=>{
+    const key=mktToCountry[r.market]||r.market;
+    return selectedCountries.has(key);
+  });
   // Sort by total absolute sensitivity (sum of all positive coefs + abs(price))
   const sorted=[...rows].sort((a,b)=>{
     const sa=Math.abs(a.b_price)+a.b_quality+a.b_marketing+a.b_green;
@@ -1039,7 +1044,10 @@ function renderMktReturn(){
     market:mktMap[s]||s,
     imm:getCoef(s,'relMarketing'),
     lag:getCoef(s,'lagRelMarketing'),
-  })).filter(d=>d.imm>0||d.lag>0)
+  })).filter(d=>{
+    const key=d.market==='United States'?'US':d.market==='United Kingdom'?'UK':d.market;
+    return selectedCountries.has(key)&&(d.imm>0||d.lag>0);
+  })
     .sort((a,b)=>(b.imm+b.lag)-(a.imm+a.lag));
   const labels=data.map(d=>d.market.replace('United ',''));
   charts['dm-mkt-chart']=new Chart(ctx,{
@@ -1714,7 +1722,7 @@ function setupFilters(){
     const lbl=document.createElement('label');lbl.className='checkbox-label active';
     lbl.innerHTML=`<input type="checkbox" value="${c}" checked> ${cLabel(c)}`;
     const cb=lbl.querySelector('input');
-    cb.addEventListener('change',()=>{cb.checked?selectedCountries.add(c):selectedCountries.delete(c);lbl.classList.toggle('active',cb.checked);});
+    cb.addEventListener('change',()=>{cb.checked?selectedCountries.add(c):selectedCountries.delete(c);lbl.classList.toggle('active',cb.checked);if(activeTab==='demand') renderDemand();});
     document.getElementById('country-filters').appendChild(lbl);
   });
   [1,2].forEach(p=>{

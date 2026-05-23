@@ -355,8 +355,8 @@ input[type=range]{accent-color:var(--accent);width:100px;}
       <div class="kpi-row" id="inv-kpis"></div>
       <div class="chart-row" style="flex:2;">
         <div class="chart-card">
-          <div class="chart-title">Cumulative Inventory Balance by Product</div>
-          <div class="chart-subtitle">Running total (units produced &minus; units sold) &mdash; negative = unmet demand</div>
+          <div class="chart-title">Ending Inventory by Product</div>
+          <div class="chart-subtitle">Actual units on hand at end of each period &mdash; sourced from production report inventory qty fields</div>
           <div class="chart-wrap"><canvas id="cumbal-chart" role="img" aria-label="Cumulative inventory"></canvas></div>
         </div>
       </div>
@@ -367,7 +367,7 @@ input[type=range]{accent-color:var(--accent);width:100px;}
         </div>
         <div class="chart-card">
           <div class="chart-title">Period Inventory Balance</div>
-          <div class="chart-subtitle">Units produced &minus; sold each period</div>
+          <div class="chart-subtitle">Change in ending inventory period over period (actual)</div>
           <div class="chart-wrap"><canvas id="perbal-chart" role="img" aria-label="Period inventory balance"></canvas></div>
         </div>
       </div>
@@ -843,20 +843,23 @@ function renderOps(){
   const PCOL={1:'#5b9bd5',2:'#e7cc54'};
   const PVS={p1:'#4472c4',s1:'#76b7b2',p2:'#e7cc54',s2:'#e86850'};
 
-  // Cumulative balance
+  // Actual ending inventory — sourced exclusively from simulation_out.xlsx (SIM_DATA)
   const cumBal={};
   products.forEach(prod=>{
-    const rows=inv.filter(r=>r[0]===prod).sort((a,b)=>a[1]-b[1]);
-    let run=INIT[prod]||0;const pm={};
-    rows.forEach(r=>{run+=(r[2]-r[3]);pm[r[1]]=run;});
+    const key='inv_qty_p'+prod;
+    const pm={};
+    periods.forEach(p=>{
+      const sd=SIM_DATA[p];
+      if(sd&&sd.ops&&sd.ops[key]!=null) pm[p]=sd.ops[key];
+    });
     cumBal[prod]=periods.map(p=>pm[p]??null);
   });
   const lastP=inv.length?Math.max(...inv.map(r=>r[1])):pMax;
   document.getElementById('inv-kpis').innerHTML=products.map(prod=>{
-    const lb=cumBal[prod].at(-1);const pos=(lb??0)>0;
-    return`<div class="kpi-card"><div class="kpi-label">Product ${prod} Cumulative</div>
+    const lb=cumBal[prod].at(-1);const pos=(lb??0)>=0;
+    return`<div class="kpi-card"><div class="kpi-label">Product ${prod} ending inventory</div>
     <div class="kpi-value" style="color:${pos?'#69a053':'#e86850'}">${lb!=null?Math.round(lb).toLocaleString():'—'}</div>
-    <div class="kpi-sub" style="color:${pos?'#69a053':'#e86850'}">${pos?'surplus':'deficit'} as of P${lastP}</div></div>`;
+    <div class="kpi-sub" style="color:var(--color-muted)">units on hand — P${lastP}</div></div>`;
   }).join('');
 
   const legOpts={display:true,position:'top',labels:{color:'#b4b4b4',font:{size:9},boxWidth:9,padding:8}};
@@ -893,7 +896,11 @@ function renderOps(){
   o3.scales.y.ticks.callback=fmtK;
   charts['perbal-chart']=new Chart(document.getElementById('perbal-chart').getContext('2d'),{
     type:'line',data:{labels:periods,datasets:products.map(prod=>({
-      label:`Product ${prod}`,data:periods.map(p=>(byPP[prod].pr[p]??0)-(byPP[prod].sl[p]??0)||null),
+      label:`Product ${prod}`,data:periods.map((p,i)=>{
+        const cur=cumBal[prod][i];
+        const prev=i>0?cumBal[prod][i-1]:null;
+        return(cur!=null&&prev!=null)?cur-prev:null;
+      }),
       borderColor:PCOL[prod],backgroundColor:PCOL[prod]+'33',tension:.3,pointRadius:1,borderWidth:2,fill:true,spanGaps:true
     }))},options:o3
   });

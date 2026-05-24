@@ -119,6 +119,11 @@ input[type=range]{accent-color:var(--accent);width:100px;}
 #pr-modal-body td.right{text-align:right;}
 #pr-modal-body tbody tr:hover{background:rgba(255,255,255,.03);}
 
+/* Command Center tab fills full height, no padding */
+#tab-cmdcenter{padding:0;overflow:hidden;flex:1;min-height:0;}
+#tab-cmdcenter.active{display:flex;flex-direction:column;}
+#cc-frame{flex:1;border:none;min-height:0;}
+
 .btn{padding:6px 13px;border-radius:6px;border:none;font-size:11px;cursor:pointer;font-weight:500;}
 .btn-primary{background:var(--accent);color:#111;}
 .btn-secondary{background:var(--card);color:var(--text);border:1px solid var(--border);}
@@ -160,6 +165,7 @@ input[type=range]{accent-color:var(--accent);width:100px;}
     <button class="tab" data-tab="competitive">Competitive Intelligence</button>
     <button class="tab" data-tab="pricing">Pricing &amp; Cost</button>
     <button class="tab" data-tab="health">Company Health</button>
+    <button class="tab" data-tab="cmdcenter">Demand Forecasting</button>
   </div>
 
   <div id="filters">
@@ -423,6 +429,16 @@ input[type=range]{accent-color:var(--accent);width:100px;}
 
   </div>
   </div><!-- /#content -->
+
+  <!-- COMMAND CENTER TAB PANE -->
+  <div id="tab-cmdcenter" class="tab-pane" style="padding:0;overflow:hidden;">
+    <iframe
+      id="cc-frame"
+      src="sim_command_center.html"
+      style="width:100%;height:100%;border:none;display:block;"
+      title="Simulation Command Center"
+    ></iframe>
+  </div>
 
 </div>
 
@@ -1721,7 +1737,28 @@ function renderActiveTab(){
   else if(activeTab==='competitive') renderCompetitive();
   else if(activeTab==='pricing') renderPricing();
   else if(activeTab==='health') renderHealth();
+  else if(activeTab==='cmdcenter'){
+    // Send pending buffer if iframe just became visible
+    const frame=document.getElementById('cc-frame');
+    if(frame && frame.contentWindow && window._pendingSimBuffer){
+      frame.contentWindow.postMessage({type:'SIM_WORKBOOK',buffer:window._pendingSimBuffer},'*');
+      window._pendingSimBuffer=null;
+    }
+  }
 }
+
+// When iframe loads, send any already-fetched buffer
+document.addEventListener('DOMContentLoaded',()=>{
+  const frame=document.getElementById('cc-frame');
+  if(frame){
+    frame.addEventListener('load',()=>{
+      if(window._pendingSimBuffer && frame.contentWindow){
+        frame.contentWindow.postMessage({type:'SIM_WORKBOOK',buffer:window._pendingSimBuffer},'*');
+        window._pendingSimBuffer=null;
+      }
+    });
+  }
+});
 
 // ── FILTERS ───────────────────────────────────────────────
 function setupFilters(){
@@ -1729,7 +1766,7 @@ function setupFilters(){
     const lbl=document.createElement('label');lbl.className='checkbox-label active';
     lbl.innerHTML=`<input type="checkbox" value="${c}" checked> ${cLabel(c)}`;
     const cb=lbl.querySelector('input');
-    cb.addEventListener('change',()=>{cb.checked?selectedCountries.add(c):selectedCountries.delete(c);lbl.classList.toggle('active',cb.checked);if(activeTab==='demand') renderDemand();});
+    cb.addEventListener('change',()=>{cb.checked?selectedCountries.add(c):selectedCountries.delete(c);lbl.classList.toggle('active',cb.checked);renderActiveTab();});
     document.getElementById('country-filters').appendChild(lbl);
   });
   [1,2].forEach(p=>{
@@ -1948,6 +1985,15 @@ async function fetchSimData(){
       }
       window._simLoaded=true;
       console.log('✓ Simulation data refreshed — P1–P'+periods[periods.length-1]);
+      // Forward raw workbook to Command Center iframe so it needs no upload
+      const frame=document.getElementById('cc-frame');
+      if(frame && frame.contentWindow){
+        frame.contentWindow.postMessage({type:'SIM_WORKBOOK',buffer:buf},'*');
+      } else {
+        // iframe not ready yet — store buffer and send when iframe loads
+        window._pendingSimBuffer=buf;
+      }
+
     }
   } catch(e){
     window._simLoaded=false;

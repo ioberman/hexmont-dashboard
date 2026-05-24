@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demand Forecasting</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Serif+Display:ital@0;1&family=Syne:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f0f0d;--sur:#181815;--sur2:#222220;--sur3:#2c2c28;
+  --bd:rgba(255,255,255,0.07);--bdm:rgba(255,255,255,0.14);
+  --tx:#f0ede6;--tx2:#9e9b94;--tx3:#5e5c57;
+  --you:#378add;--yl:rgba(55,138,221,0.15);
+  --gn:#639922;--gl:rgba(99,153,34,0.15);
+  --am:#BA7517;--al:rgba(186,117,23,0.15);
+  --rd:#A32D2D;--rl:rgba(163,45,45,0.15);
+  --r:6px;--rl2:10px;
+}
+body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--tx);font-size:13px;line-height:1.6;min-height:100vh}
+.shell{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+
+/* SIDEBAR */
+.sidebar{background:var(--sur);border-right:0.5px solid var(--bd);padding:20px 0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.brand{padding:0 18px 18px;border-bottom:0.5px solid var(--bd);margin-bottom:14px}
+.brand-title{font-family:'DM Serif Display',serif;font-size:16px;letter-spacing:-0.3px;font-style:italic}
+.brand-sub{font-size:10px;color:var(--tx3);font-family:'DM Mono',monospace;margin-top:2px}
+.ns{font-size:9px;color:var(--tx3);letter-spacing:2px;text-transform:uppercase;padding:0 18px;margin:10px 0 3px}
+.ni{padding:7px 18px;font-size:12px;cursor:pointer;color:var(--tx2);display:flex;align-items:center;gap:8px;transition:all .12s;border-left:2px solid transparent}
+.ni:hover{background:var(--sur2);color:var(--tx)}
+.ni.active{background:var(--yl);color:var(--you);border-left-color:var(--you)}
+.ni .ico{font-size:13px;width:16px;text-align:center;flex-shrink:0}
+.period-stack{padding:0 10px;margin-top:8px}
+.ps-item{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:var(--r);cursor:pointer;font-family:'DM Mono',monospace;font-size:10px;color:var(--tx3);margin-bottom:2px}
+.ps-item:hover{background:var(--sur2);color:var(--tx2)}
+.ps-item.latest{color:var(--you)}
+.ps-dot{width:5px;height:5px;border-radius:50%;background:var(--gn);flex-shrink:0}
+.ps-dot.empty{background:var(--sur3)}
+.upload-chip{margin:10px 10px 0;padding:8px 12px;background:var(--sur2);border:0.5px dashed var(--bdm);border-radius:var(--r);color:var(--tx3);font-size:11px;font-family:'Syne',sans-serif;cursor:pointer;text-align:center;transition:all .15s}
+.upload-chip:hover{border-color:var(--you);color:var(--you)}
+#file-in{display:none}
+.sidebar-bottom{margin-top:auto;padding:14px 18px;border-top:0.5px solid var(--bd);font-size:10px;color:var(--tx3);font-family:'DM Mono',monospace;line-height:1.8}
+
+/* MAIN */
+.main{overflow-y:auto}
+.view{display:none;padding:28px 32px;max-width:1000px}.view.active{display:block}
+.vh{margin-bottom:24px}
+.vt{font-family:'DM Serif Display',serif;font-size:24px;letter-spacing:-0.5px;line-height:1.1}
+.vs{font-size:11px;color:var(--tx3);margin-top:4px;font-family:'DM Mono',monospace}
+
+/* CARDS */
+.card{background:var(--sur);border:0.5px solid var(--bd);border-radius:var(--rl2);padding:16px 18px;margin-bottom:14px}
+.ct{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--tx3);margin-bottom:10px;padding-bottom:5px;border-bottom:0.5px solid var(--bd);font-family:'DM Mono',monospace}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.g5{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px}
+.mc{background:var(--sur2);border-radius:var(--r);padding:12px 14px}
+.mc.hi{border:1px solid rgba(55,138,221,0.4);background:var(--yl)}
+.mc.wc{border-left:3px solid var(--rd)}
+.mc.gc{border-left:3px solid var(--gn)}
+.mc.ac{border-left:3px solid var(--am)}
+.mc-l{font-size:9px;color:var(--tx3);margin-bottom:3px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.6px}
+.mc-v{font-size:20px;font-weight:600;line-height:1.1}
+.mc-s{font-size:10px;color:var(--tx3);margin-top:2px}
+
+/* TABLES */
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:5px 8px;font-size:9px;color:var(--tx3);font-family:'DM Mono',monospace;border-bottom:0.5px solid var(--bd);font-weight:400;letter-spacing:.5px}
+th.r{text-align:right}
+td{padding:6px 8px;border-bottom:0.5px solid var(--bd);color:var(--tx2);vertical-align:middle}
+td.r{text-align:right;font-family:'DM Mono',monospace;font-size:11px}
+tr:last-child td{border-bottom:none}
+.you-row td{color:var(--you)}
+.up{color:#97c459}.dn{color:#f09595}.neu{color:var(--tx3)}
+.badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:600;font-family:'DM Mono',monospace}
+.bg{background:var(--gl);color:#97c459}.ba{background:var(--al);color:#EF9F27}.br{background:var(--rl);color:#f09595}.bb{background:var(--yl);color:var(--you)}
+.sig{display:flex;align-items:flex-start;gap:8px;padding:9px 12px;border-radius:var(--r);margin-bottom:7px;font-size:12px;line-height:1.5}
+.sig.w{background:var(--al);color:#EF9F27}.sig.g{background:var(--gl);color:#97c459}.sig.r{background:var(--rl);color:#f09595}.sig.i{background:var(--yl);color:var(--you)}
+.divider{border:none;border-top:0.5px solid var(--bd);margin:12px 0}
+.cw{position:relative;width:100%}
+.note{font-size:10px;color:var(--tx3);margin-top:6px;font-style:italic;font-family:'DM Mono',monospace}
+.trend-up{color:#97c459}.trend-dn{color:#f09595}.trend-flat{color:var(--tx3)}
+
+/* UPLOAD ZONE */
+.uz{border:1.5px dashed var(--bdm);border-radius:var(--rl2);padding:48px 32px;text-align:center;cursor:pointer;background:var(--sur);transition:all .2s}
+.uz:hover,.uz.drag{border-color:var(--you);background:var(--yl)}
+.uz-icon{font-size:40px;margin-bottom:14px}
+.uz h3{font-size:16px;font-weight:500;margin-bottom:6px}
+.uz p{font-size:12px;color:var(--tx3);line-height:1.8}
+.us{margin-top:14px;padding:9px 14px;border-radius:var(--r);font-size:11px;font-family:'DM Mono',monospace}
+.us.ok{background:var(--gl);color:#97c459}.us.err{background:var(--rl);color:#f09595}.us.ld{background:var(--yl);color:var(--you)}
+.period-badge{display:inline-block;background:var(--yl);color:var(--you);padding:3px 10px;border-radius:20px;font-size:11px;font-family:'DM Mono',monospace;font-weight:500;margin-left:8px;vertical-align:middle}
+
+/* DECISION TOOLS */
+.tool-tabs{display:flex;gap:3px;margin-bottom:16px;flex-wrap:wrap}
+.tt{padding:6px 12px;font-size:11px;font-family:'DM Mono',monospace;cursor:pointer;border:0.5px solid var(--bdm);border-radius:var(--r);background:var(--sur2);color:var(--tx3);transition:all .12s}
+.tt:hover{color:var(--tx)}.tt.active{background:var(--yl);border-color:rgba(55,138,221,0.5);color:var(--you)}
+.tool-panel{display:none}.tool-panel.active{display:block}
+.one-input{background:var(--sur2);border-radius:var(--rl2);padding:20px 24px;margin-bottom:16px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.oi-label{font-size:13px;color:var(--tx2);flex:1;min-width:200px;line-height:1.5}
+.oi-label strong{color:var(--tx);display:block;font-size:14px;margin-bottom:2px}
+.oi-field{display:flex;align-items:center;gap:10px}
+.oi-field label{font-size:11px;color:var(--tx3);font-family:'DM Mono',monospace;white-space:nowrap}
+.oi-field input{width:140px;padding:8px 12px;border:0.5px solid var(--bdm);border-radius:var(--r);background:var(--sur);color:var(--tx);font-size:14px;font-family:'DM Mono',monospace;font-weight:500}
+.oi-field input:focus{outline:1px solid var(--you)}
+.calc-btn{padding:9px 20px;font-size:12px;font-family:'Syne',sans-serif;font-weight:500;cursor:pointer;border:none;border-radius:var(--r);background:var(--you);color:#fff;white-space:nowrap}
+.calc-btn:hover{opacity:0.85}
+.baseline-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:10px;font-family:'DM Mono',monospace;background:var(--sur3);color:var(--tx3)}
+
+/* MEMO OUTPUT */
+.memo{background:var(--sur);border:0.5px solid var(--bdm);border-radius:var(--rl2);padding:24px 28px;display:none}
+.memo.show{display:block}
+.memo-hdr{border-bottom:1px solid rgba(255,255,255,0.2);padding-bottom:12px;margin-bottom:18px}
+.memo-to{font-size:9px;color:var(--tx3);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px}
+.memo-title{font-family:'DM Serif Display',serif;font-size:22px;letter-spacing:-0.3px;font-style:italic}
+.memo-meta{font-size:10px;color:var(--tx3);font-family:'DM Mono',monospace;margin-top:4px}
+.memo-st{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--tx3);margin-bottom:6px;margin-top:16px;font-family:'DM Mono',monospace}
+.memo-body{font-size:12px;color:var(--tx2);line-height:1.8}
+.memo-body strong{color:var(--tx)}
+.math{background:var(--sur2);border-radius:var(--r);padding:12px 14px;font-family:'DM Mono',monospace;font-size:10px;color:var(--tx2);line-height:2;margin:8px 0}
+.math .eq{color:var(--tx)}.math .cm{color:var(--tx3);font-style:italic}
+.rec-box{background:var(--you);color:#fff;border-radius:var(--rl2);padding:14px 18px;margin:10px 0}
+.rec-box .rl{font-size:9px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1px;opacity:.7;margin-bottom:3px}
+.rec-box .rv{font-family:'DM Serif Display',serif;font-size:26px;letter-spacing:-0.3px;line-height:1.1}
+.rec-box .rs{font-size:11px;opacity:.75;margin-top:3px}
+.info-b{background:var(--yl);border-radius:var(--r);padding:10px 13px;font-size:11px;color:var(--you);margin:8px 0;line-height:1.6}
+.warn-b{background:var(--al);border-radius:var(--r);padding:10px 13px;font-size:11px;color:#EF9F27;margin:8px 0;line-height:1.6}
+.good-b{background:var(--gl);border-radius:var(--r);padding:10px 13px;font-size:11px;color:#97c459;margin:8px 0;line-height:1.6}
+.bad-b{background:var(--rl);border-radius:var(--r);padding:10px 13px;font-size:11px;color:#f09595;margin:8px 0;line-height:1.6}
+.print-btn{padding:5px 12px;font-size:10px;font-family:'DM Mono',monospace;cursor:pointer;border:0.5px solid var(--bdm);border-radius:var(--r);background:transparent;color:var(--tx3);float:right}
+.print-btn:hover{color:var(--tx)}
+@media print{.sidebar,.calc-btn,.print-btn,.tool-tabs,.upload-chip{display:none}.view{padding:0;max-width:none}.memo{border:none;display:block!important}}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="brand">
+    <div class="brand-title">Demand Forecasting</div>
+    <div class="brand-sub">Company 1 · Hexmont</div>
+  </div>
+  <div class="ns">Navigate</div>
+  <div class="ni active" onclick="nav('upload',this)"><span class="ico">📥</span> Upload</div>
+  <div class="ni" onclick="nav('baseline',this)"><span class="ico">📊</span> Baseline forecast</div>
+  <div class="ni" onclick="nav('intel',this)"><span class="ico">🔍</span> Competitive intel</div>
+  <div class="ni" onclick="nav('capacity',this)"><span class="ico">🏭</span> Demand & capacity</div>
+  <div class="ni" onclick="nav('decisions',this)"><span class="ico">🎯</span> Decision tools</div>
+  <div class="ni" onclick="nav('history',this)"><span class="ico">📈</span> History</div>
+  <div class="ns" style="margin-top:14px">Periods loaded</div>
+  <div class="period-stack" id="period-stack">
+    <div class="ps-item"><span class="ps-dot"></span>P60 baseline</div>
+  </div>
+  <div class="upload-chip" onclick="document.getElementById('file-in').click()">
+    + Upload next period
+  </div>
+  <input type="file" id="file-in" accept=".xlsm,.xlsx,.xls">
+  <div class="sidebar-bottom">
+    OLS model · R²=0.927 avg<br>
+    Phase 1/2 validated<br>
+    3-period trend engine
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- UPLOAD -->
+  <div id="view-upload" class="view active">
+    <div class="vh"><div class="vt">Upload period file</div><div class="vs">Drop simulation_out.xlsm — everything extracts automatically</div></div>
+    <div class="uz" id="drop-z" ondragover="e=>{e.preventDefault();document.getElementById('drop-z').classList.add('drag')}" ondragleave="document.getElementById('drop-z').classList.remove('drag')" ondrop="e=>{e.preventDefault();document.getElementById('drop-z').classList.remove('drag');handleFile(e.dataTransfer.files[0])}" onclick="document.getElementById('file-in').click()">
+      <div class="uz-icon">📊</div>
+      <h3>Drop simulation_out.xlsm here</h3>
+      <p>Prices · Quality · Green · Marketing · Shares · Capacity · Inventory<br>All extracted automatically. Each upload adds one period.</p>
+    </div>
+    <div id="upload-status" style="display:none" class="us"></div>
+    <div class="card" style="margin-top:16px">
+      <div class="ct">Extracted automatically each upload</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:12px;color:var(--tx2);line-height:2">
+        <div>✅ Prices — all 5 companies, P1 & P2, 6 markets<br>✅ Quality index — all 5 companies<br>✅ Market share — from unit sales / total demand<br>✅ Marketing — your spend + total per market</div>
+        <div>✅ Green score — yours & industry average<br>✅ Factory capacity & ending inventory<br>✅ Production budget & construction spend<br>✅ Period number auto-detected</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BASELINE FORECAST -->
+  <div id="view-baseline" class="view">
+    <div class="vh">
+      <div class="vt">Baseline forecast <span id="bl-badge" class="period-badge" style="display:none"></span></div>
+      <div class="vs">If you hold all inputs constant — where do you land next period based on competitor trends?</div>
+    </div>
+    <div id="bl-body"><div style="text-align:center;padding:48px;color:var(--tx3)">Upload at least one period to see the baseline forecast.</div></div>
+  </div>
+
+  <!-- INTEL -->
+  <div id="view-intel" class="view">
+    <div class="vh"><div class="vt">Competitive intelligence <span id="intel-badge" class="period-badge" style="display:none"></span></div><div class="vs">What happened this period. Competitor moves, trend directions, signals requiring response.</div></div>
+    <div id="intel-body"><div style="text-align:center;padding:48px;color:var(--tx3)">Upload a period file to begin.</div></div>
+  </div>
+
+  <!-- CAPACITY -->
+  <div id="view-capacity" class="view">
+    <div class="vh"><div class="vt">Demand & capacity plan <span id="cap-badge" class="period-badge" style="display:none"></span></div><div class="vs">Baseline forecast demand vs available supply. Constraint analysis.</div></div>
+    <div id="cap-body"><div style="text-align:center;padding:48px;color:var(--tx3)">Upload a period file to begin.</div></div>
+  </div>
+
+  <!-- DECISION TOOLS -->
+  <div id="view-decisions" class="view">
+    <div class="vh"><div class="vt">Decision tools <span id="dec-badge" class="period-badge" style="display:none"></span></div><div class="vs">All inputs pre-loaded from latest period. Enter only what's decision-specific.</div></div>
+    <div id="dec-body"><div style="text-align:center;padding:48px;color:var(--tx3)">Upload at least one period to unlock decision tools.</div></div>
+  </div>
+
+  <!-- HISTORY -->
+  <div id="view-history" class="view">
+    <div class="vh"><div class="vt">Trend history</div><div class="vs">Key metrics across all uploaded periods</div></div>
+    <div id="hist-body"><div style="text-align:center;padding:48px;color:var(--tx3)">Upload at least two periods to see trends.</div></div>
+  </div>
+
+</div>
+</div>
+
+<script>
+// ── PARENT PAGE BRIDGE ────────────────────────────────────────────────────
+// When embedded in index.html, the parent sends the raw xlsx ArrayBuffer
+// via postMessage so no manual upload is needed.
+window.addEventListener('message', e => {
+  if (!e.data || e.data.type !== 'SIM_WORKBOOK') return;
+  try {
+    const buf = e.data.buffer;
+    if (!buf) return;
+    const st = document.getElementById('upload-status');
+    if (st) { st.style.display = 'block'; st.className = 'us ld'; st.textContent = 'Loading from website data…'; }
+    const wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
+    const sn = findLastPop(wb);
+    if (!sn) { if (st) { st.className = 'us err'; st.textContent = 'No populated period found in file.'; } return; }
+    const pd = parseSheet(wb, sn);
+    const ex = periods.findIndex(p => p.period === pd.period);
+    if (ex > -1) periods[ex] = pd; else { periods.push(pd); periods.sort((a, b) => a.period - b.period); }
+    if (st) {
+      st.className = 'us ok';
+      const avgQ = ([2,3,4,5].reduce((s,co) => s + pd.quality.P1[`co${co}`], 0) / 4).toFixed(3);
+      st.innerHTML = `✅ Auto-loaded P${pd.period} from website data — Co1 P1 share ${(pd.shares.P1.co1 * 100).toFixed(1)}% · Quality ${pd.quality.P1.co1.toFixed(3)} vs comp avg ${avgQ}`;
+    }
+    renderSidebar(); renderAll();
+    // Hide upload zone if it's visible and navigate to baseline
+    const uz = document.getElementById('drop-z');
+    if (uz) uz.style.display = 'none';
+    setTimeout(() => nav('baseline'), 400);
+  } catch (err) {
+    console.error('Command center bridge error:', err);
+  }
+});
+
+// Also try fetching directly from the same origin (works when both files are on same server)
+(async function tryDirectFetch() {
+  try {
+    const url = './simulation_out.xlsx?t=' + Date.now();
+    const resp = await fetch(url);
+    if (!resp.ok) return; // will rely on postMessage from parent instead
+    const buf = await resp.arrayBuffer();
+    const wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
+    const sn = findLastPop(wb);
+    if (!sn) return;
+    const pd = parseSheet(wb, sn);
+    const ex = periods.findIndex(p => p.period === pd.period);
+    if (ex > -1) periods[ex] = pd; else { periods.push(pd); periods.sort((a, b) => a.period - b.period); }
+    const st = document.getElementById('upload-status');
+    if (st) {
+      st.style.display = 'block'; st.className = 'us ok';
+      st.innerHTML = `✅ Auto-loaded P${pd.period} from server`;
+    }
+    renderSidebar(); renderAll();
+    const uz = document.getElementById('drop-z');
+    if (uz) uz.style.display = 'none';
+    setTimeout(() => nav('baseline'), 400);
+  } catch (e) {
+    // Silent — fallback to manual upload or postMessage
+  }
+})();
+
+
+const MKTS=['Japan','Mexico','China','UK','Germany','US'];
+const FLAGS={Japan:'🇯🇵',Mexico:'🇲🇽',China:'🇨🇳',UK:'🇬🇧',Germany:'🇩🇪',US:'🇺🇸'};
+const FX={Japan:90,Mexico:12.8,China:6.5,UK:0.65,Germany:0.77,US:1};
+const MKT_COLS=[1,2,3,4,5,6];
+const CURR_SYM={Japan:'¥',Mexico:'₱',China:'¥',UK:'£',Germany:'€',US:'$'};
+
+const COEFS={
+  P1_Japan:{const:0.0891,rPrice:-0.3341,relMarketing:0.0317,lagRelMarketing:0.0502,lagRelQual:0.1607,lagRelGreen:0.2028},
+  P1_US:{const:0.0021,rPrice:-0.1849,relMarketing:0.0220,lagRelMarketing:0.0193,rQual:0.1431,lagRelGreen:0.1947},
+  P1_UK:{const:0.1152,rPrice:-0.3737,relMarketing:0.0475,lagRelMarketing:0.0584,lagRelQual:0.1783,lagRelGreen:0.1756},
+  P1_Germany:{const:-0.0087,rPrice:-0.2045,relMarketing:0.0489,rQual:0.1851,lagRelGreen:0.1788},
+  P1_China:{const:0.1806,rPrice:-0.3843,relMarketing:0.0476,lagRelMarketing:0.0393,lagRelQual:0.1162,lagRelGreen:0.1982},
+  P1_Mexico:{const:0.1895,rPrice:-0.4030,relMarketing:0.0617,lagRelMarketing:0.0370,lagRelQual:0.1300,lagRelGreen:0.1819},
+  P2_Japan:{const:0.0345,rPrice:-0.2401,lagRelMarketing:0.0261,lagRelQual:0.1724,lagRelGreen:0.2080},
+  P2_US:{const:-0.0682,rPrice:-0.2100,relMarketing:0.0454,lagRelMarketing:0.0283,lagRelQual:0.1960,lagRelGreen:0.2077},
+  P2_UK:{const:0.0441,rPrice:-0.3556,relMarketing:0.0742,lagRelMarketing:0.0921,lagRelQual:0.1543,lagRelGreen:0.1898},
+  P2_Germany:{const:-0.0370,rPrice:-0.2758,relMarketing:0.0421,lagRelMarketing:0.0595,rQual:0.2078,lagRelGreen:0.2044},
+  P2_China:{const:0.0777,rPrice:-0.3047,relMarketing:0.0636,lagRelMarketing:0.0345,lagRelQual:0.1187,lagRelGreen:0.2071},
+  P2_Mexico:{const:0.0736,rPrice:-0.2953,relMarketing:0.0602,lagRelMarketing:0.0384,lagRelQual:0.1066,lagRelGreen:0.2135},
+};
+const HPS=[55,56,57,58,59,60];
+const HIST1={Japan:[333135,345280,350150,353550,354970,352195],Mexico:[171800,159760,162190,160620,160050,159695],China:[107960,104170,108290,108975,107605,106420],UK:[259585,252150,248655,244920,242130,246455],Germany:[276145,270610,270875,267960,265530,269680],US:[670680,674045,684795,680855,683285,685265]};
+const HIST2={Japan:[304605,308375,306770,310930,311060,309830],Mexico:[111425,116745,123555,122300,119750,120335],China:[100715,97495,103770,105425,103595,102960],UK:[273350,260065,251320,249155,245580,250975],Germany:[325950,316260,314045,313645,309980,316140],US:[715735,710545,715075,717495,718220,723315]};
+const PROD={P1:{fc:1500013,vc:14.2517,depRate:0.0125,constCost:16},P2:{fc:1954046,vc:21.2289,depRate:0.0125,constCost:25}};
+
+// P60 seed
+const P60={period:60,prices:{P1:{co1:{Japan:4000,Mexico:360,China:340,UK:30,Germany:47,US:43},co2:{Japan:4000,Mexico:360,China:340,UK:30,Germany:47,US:43},co3:{Japan:4000,Mexico:360,China:340,UK:30,Germany:47,US:43},co4:{Japan:4000,Mexico:360,China:340,UK:30,Germany:47,US:43},co5:{Japan:4000,Mexico:360,China:340,UK:30,Germany:47,US:43}},P2:{co1:{Japan:6100,Mexico:450,China:450,UK:40,Germany:55,US:56},co2:{Japan:6100,Mexico:450,China:450,UK:40,Germany:55,US:56},co3:{Japan:6100,Mexico:450,China:450,UK:40,Germany:55,US:56},co4:{Japan:6100,Mexico:450,China:450,UK:40,Germany:55,US:56},co5:{Japan:6100,Mexico:450,China:450,UK:40,Germany:55,US:56}}},quality:{P1:{co1:1.0,co2:1.0,co3:1.0,co4:1.0,co5:1.0},P2:{co1:1.0,co2:1.0,co3:1.0,co4:1.0,co5:1.0}},mktTotalP1:{Japan:70000200,Mexico:3000000,China:3000010,UK:750001,Germany:1250001,US:5000000},mktCo1P1:{Japan:14000040,Mexico:600000,China:600002,UK:150000,Germany:250000,US:1000000},greenCo1:{P1:0.6593,P2:0.6042},greenAvg:{P1:0.6593,P2:0.6042},shares:{P1:{co1:0.200,co2:0.200,co3:0.200,co4:0.200,co5:0.200},P2:{co1:0.200,co2:0.200,co3:0.200,co4:0.200,co5:0.200}},prodBudget:{P1:8000,P2:10000},capacity:{P1:386606,P2:365571},inventory:{P1:173821,P2:55113},construction:{P1:0,P2:0}};
+
+let periods=[];
+
+// ── HELPERS ────────────────────────────────────────────────────────────────
+function safe(v,d=0){try{const f=parseFloat(v);return isNaN(f)?d:f;}catch{return d;}}
+function gv(id){return safe(document.getElementById(id)?.value);}
+function linreg(xs,ys){const n=xs.length,sx=xs.reduce((a,b)=>a+b,0),sy=ys.reduce((a,b)=>a+b,0),sxy=xs.reduce((s,x,i)=>s+x*ys[i],0),sxx=xs.reduce((s,x)=>s+x*x,0),denom=n*sxx-sx*sx;if(Math.abs(denom)<1e-10)return{m:0,b:sy/n};const m=(n*sxy-sx*sy)/denom,b=(sy-m*sx)/n;return{m,b};}
+function project(vals){if(vals.length<2)return vals[vals.length-1]||0;const xs=vals.map((_,i)=>i);const{m,b}=linreg(xs,vals);return m*vals.length+b;}
+function fmkt(hist,p){const{m,b}=linreg(HPS,hist);return Math.max(0,Math.round(m*p+b));}
+function fmt(n,d=2){if(typeof n!=='number'||isNaN(n))return'—';return n.toLocaleString('en-US',{minimumFractionDigits:Math.max(0,Math.min(20,Math.floor(d))),maximumFractionDigits:Math.max(0,Math.min(20,Math.floor(d)))});}
+function fmtPct(n){if(typeof n!=='number'||isNaN(n))return'—';return(n*100).toFixed(1)+'%';}
+function fmtPP(n){if(typeof n!=='number'||isNaN(n))return'—';const d=Math.max(0,Math.min(20,1));return(n>=0?'+':'')+n.toFixed(d)+'pp';}
+function today(){return new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});}
+function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
+function shareCalc(c,rPrice,relMkt,lagMkt,qual,green){
+  let s=c.const+c.rPrice*rPrice;
+  if(c.relMarketing) s+=c.relMarketing*relMkt;
+  if(c.lagRelMarketing) s+=c.lagRelMarketing*lagMkt;
+  if(c.lagRelQual) s+=c.lagRelQual*qual;
+  if(c.rQual) s+=c.rQual*qual;
+  if(c.lagRelGreen) s+=c.lagRelGreen*green;
+  return clamp(s,0.02,0.50);
+}
+function otherTerms(c,relMkt,lagMkt,qual,green){
+  let s=c.const;
+  if(c.relMarketing) s+=c.relMarketing*relMkt;
+  if(c.lagRelMarketing) s+=c.lagRelMarketing*lagMkt;
+  if(c.lagRelQual) s+=c.lagRelQual*qual;
+  if(c.rQual) s+=c.rQual*qual;
+  if(c.lagRelGreen) s+=c.lagRelGreen*green;
+  return s;
+}
+function rPriceForShare(c,target,relMkt,lagMkt,qual,green){
+  const other=otherTerms(c,relMkt,lagMkt,qual,green);
+  return (target-other)/c.rPrice;
+}
+function getPrev(pd){const i=periods.indexOf(pd);return i>0?periods[i-1]:P60;}
+
+// ── TREND ENGINE ───────────────────────────────────────────────────────────
+function getLastN(n){
+  const all=[P60,...periods];
+  return all.slice(-Math.min(n,all.length));
+}
+
+function projectCompInputs(nextPeriod){
+  const hist=getLastN(4); // use up to 4 for 3-period trend
+  const proj={prices:{P1:{},P2:{}},quality:{P1:{},P2:{}},mktTotal:{},greenAvg:{P1:0,P2:0}};
+
+  // Project prices for each competitor (co2-co5) in each market
+  ['P1','P2'].forEach(pr=>{
+    MKTS.forEach(mkt=>{
+      let avgComp=0;
+      for(let co=2;co<=5;co++){
+        const vals=hist.map(p=>p.prices[pr][`co${co}`]?.[mkt]||0).filter(v=>v>0);
+        const projected=vals.length>=2?project(vals.slice(-3)):vals[vals.length-1]||0;
+        avgComp+=projected;
+      }
+      proj.prices[pr][mkt]=avgComp/4;
+    });
+    // Project quality per competitor
+    for(let co=2;co<=5;co++){
+      const vals=hist.map(p=>p.quality[pr][`co${co}`]||1.0);
+      proj.quality[pr][`co${co}`]=project(vals.slice(-3));
+    }
+    proj.quality[pr].avg=([2,3,4,5].reduce((s,co)=>s+proj.quality[pr][`co${co}`],0))/4;
+  });
+
+  // Project marketing totals
+  MKTS.forEach(mkt=>{
+    const vals=hist.map(p=>p.mktTotalP1?.[mkt]||0).filter(v=>v>0);
+    proj.mktTotal[mkt]=vals.length>=2?project(vals.slice(-3)):vals[vals.length-1]||0;
+  });
+
+  // Project industry avg green
+  ['P1','P2'].forEach(pr=>{
+    const vals=hist.map(p=>p.greenAvg?.[pr]||0).filter(v=>v>0);
+    proj.greenAvg[pr]=vals.length>=2?project(vals.slice(-3)):vals[vals.length-1]||0;
+  });
+
+  return proj;
+}
+
+function computeBaselineForecast(pd){
+  const nextP=pd.period+1;
+  const prev=getPrev(pd);
+  const projected=projectCompInputs(nextP);
+  const results={P1:{},P2:{}};
+
+  ['P1','P2'].forEach(prod=>{
+    let totalDemand=0;
+    MKTS.forEach(mkt=>{
+      const c=COEFS[`${prod}_${mkt}`];if(!c){results[prod][mkt]={share:0.2,demand:0};return;}
+      const mktSize=fmkt(prod==='P1'?HIST1[mkt]:HIST2[mkt],nextP);
+      const projCompAvgPrice=projected.prices[prod][mkt];
+      const rPrice=projCompAvgPrice>0?pd.prices[prod].co1[mkt]/projCompAvgPrice:1;
+      const tot=projected.mktTotal[mkt]||pd.mktTotalP1[mkt]||1;
+      const co1Mkt=pd.mktCo1P1[mkt]||1;
+      const relMkt=co1Mkt/tot*5;
+      const lagMkt=(prev.mktCo1P1?.[mkt]||co1Mkt)/((prev.mktTotalP1?.[mkt]||tot))*5;
+      const qual=pd.quality[prod].co1;
+      const greenRel=(pd.greenCo1?.[prod]||0.6593)/(projected.greenAvg[prod]||pd.greenAvg?.[prod]||0.6593);
+      const share=shareCalc(c,rPrice,relMkt,lagMkt,qual,greenRel);
+      const demand=Math.round(mktSize*share);
+      totalDemand+=demand;
+      // Trend direction for competitor price
+      const priceVals=getLastN(4).map(p=>([2,3,4,5].reduce((s,co)=>s+(p.prices[prod][`co${co}`]?.[mkt]||0),0)/4));
+      const trendSlope=priceVals.length>=2?(priceVals[priceVals.length-1]-priceVals[Math.max(0,priceVals.length-3)])/Math.min(2,priceVals.length-1):0;
+      results[prod][mkt]={share,demand,mktSize,rPrice,projCompAvgPrice,relMkt,greenRel,trendSlope};
+    });
+    results[prod]._total=totalDemand;
+  });
+  return results;
+}
+
+function computeCapPlan(pd,forecast){
+  const res={};
+  ['P1','P2'].forEach(prod=>{
+    const cap=pd.capacity[prod];const inv=pd.inventory[prod];
+    const budget=pd.prodBudget[prod]*1000;
+    const constSpend=pd.construction[prod]*1000;
+    const depUnits=Math.round(cap*PROD[prod].depRate);
+    const constUnits=Math.round(constSpend/PROD[prod].constCost);
+    const nextCap=cap-depUnits+constUnits;
+    const budgetUnits=Math.floor((budget-PROD[prod].fc)/PROD[prod].vc);
+    const effProd=Math.min(budgetUnits,nextCap);
+    const budgetSlack=budget-(PROD[prod].fc+PROD[prod].vc*effProd);
+    const fcDemand=forecast[prod]._total||0;
+    const available=effProd+inv;
+    const surplus=available-fcDemand;
+    const utilPct=nextCap>0?Math.round(fcDemand/nextCap*100):0;
+    const minConst=Math.round(depUnits*PROD[prod].constCost/1000);
+    res[prod]={nextCap,effProd,budgetUnits,budgetSlack,budgetBinding:budgetUnits<nextCap,fcDemand,available,surplus,utilPct,depUnits,constUnits,minConst,inv,cap,budget};
+  });
+  return res;
+}
+
+// ── PARSER ─────────────────────────────────────────────────────────────────
+function cellV(ws,r,c){const addr=XLSX.utils.encode_cell({r,c});return ws[addr]?safe(ws[addr].v):0;}
+
+function findLastPop(wb){
+  const all=wb.SheetNames.filter(s=>/^P\d+$/.test(s)).sort((a,b)=>parseInt(a.slice(1))-parseInt(b.slice(1)));
+  for(let i=all.length-1;i>=0;i--){const ws=wb.Sheets[all[i]];if(cellV(ws,12,1)>0)return all[i];}
+  return null;
+}
+
+function parseSheet(wb,sn){
+  const ws=wb.Sheets[sn];const pNum=parseInt(sn.slice(1));
+  const r={period:pNum,prices:{P1:{},P2:{}},quality:{P1:{},P2:{}},shares:{P1:{},P2:{}},mktTotalP1:{},mktCo1P1:{},greenCo1:{},greenAvg:{},capacity:{},inventory:{},prodBudget:{},construction:{}};
+  for(let co=0;co<5;co++){const k=`co${co+1}`;r.prices.P1[k]={};r.prices.P2[k]={};for(let i=0;i<6;i++){r.prices.P1[k][MKTS[i]]=cellV(ws,12+co,MKT_COLS[i]);r.prices.P2[k][MKTS[i]]=cellV(ws,22+co,MKT_COLS[i]);}}
+  for(let co=0;co<5;co++){r.quality.P1[`co${co+1}`]=cellV(ws,70,co+1)||1.0;r.quality.P2[`co${co+1}`]=cellV(ws,71,co+1)||1.0;}
+  let p1T=0,p2T=0,c1P1=0,c1P2=0;
+  for(let i=0;i<6;i++){p1T+=cellV(ws,2,MKT_COLS[i]);p2T+=cellV(ws,7,MKT_COLS[i]);c1P1+=cellV(ws,84+i,1);c1P2+=cellV(ws,126+i,1);}
+  r.shares.P1.co1=p1T>0?c1P1/p1T:0.2;r.shares.P2.co1=p2T>0?c1P2/p2T:0.2;
+  for(let co=2;co<=5;co++){r.shares.P1[`co${co}`]=(1-r.shares.P1.co1)/4;r.shares.P2[`co${co}`]=(1-r.shares.P2.co1)/4;}
+  for(let i=0;i<6;i++){r.mktTotalP1[MKTS[i]]=cellV(ws,32,MKT_COLS[i]);r.mktCo1P1[MKTS[i]]=cellV(ws,114+i,1);}
+  r.greenCo1={P1:cellV(ws,272,1)||0.6593,P2:cellV(ws,273,1)||0.6042};
+  r.greenAvg={P1:cellV(ws,274,1)||0.6593,P2:cellV(ws,275,1)||0.6042};
+  r.capacity={P1:cellV(ws,263,1)||386606,P2:cellV(ws,264,1)||365571};
+  r.inventory={P1:cellV(ws,191,1)||0,P2:cellV(ws,200,1)||0};
+  const ihws=wb.Sheets['InputHistory'];
+  if(ihws){let pc=-1;for(let c=2;c<200;c++){const cell=ihws[XLSX.utils.encode_cell({r:0,c})];if(cell&&String(cell.v)===`Period ${pNum}`){pc=c;break;}}
+    if(pc>-1){r.prodBudget={P1:cellV(ihws,52,pc)||8000,P2:cellV(ihws,53,pc)||10000};r.construction={P1:cellV(ihws,54,pc)||0,P2:cellV(ihws,55,pc)||0};}
+    else{r.prodBudget={P1:8000,P2:10000};r.construction={P1:0,P2:0};}}
+  return r;
+}
+
+function handleFile(file){
+  if(!file)return;
+  document.getElementById('file-in').value='';
+  const st=document.getElementById('upload-status');
+  st.style.display='block';st.className='us ld';st.textContent='Reading…';
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      const sn=findLastPop(wb);if(!sn){st.className='us err';st.textContent='No populated period found.';return;}
+      const pd=parseSheet(wb,sn);
+      const ex=periods.findIndex(p=>p.period===pd.period);
+      if(ex>-1)periods[ex]=pd;else{periods.push(pd);periods.sort((a,b)=>a.period-b.period);}
+      st.className='us ok';
+      const avgQ=([2,3,4,5].reduce((s,co)=>s+pd.quality.P1[`co${co}`],0)/4).toFixed(3);
+      st.innerHTML=`✅ Loaded P${pd.period} — Co1 P1 share ${(pd.shares.P1.co1*100).toFixed(1)}% · Quality ${pd.quality.P1.co1.toFixed(3)} vs comp avg ${avgQ} · Green ${pd.greenCo1.P1.toFixed(4)}`;
+      renderSidebar();renderAll();
+      setTimeout(()=>nav('baseline'),600);
+    }catch(err){st.className='us err';st.textContent=`Error: ${err.message}`;console.error(err);}
+  };
+  reader.readAsArrayBuffer(file);
+}
+document.getElementById('file-in').onchange=e=>handleFile(e.target.files[0]);
+document.getElementById('drop-z').onclick=()=>document.getElementById('file-in').click();
+
+// ── RENDER SIDEBAR ─────────────────────────────────────────────────────────
+function renderSidebar(){
+  const el=document.getElementById('period-stack');
+  el.innerHTML='<div class="ps-item"><span class="ps-dot empty"></span>P60 baseline</div>';
+  periods.forEach((pd,i)=>{
+    const d=document.createElement('div');
+    d.className='ps-item'+(i===periods.length-1?' latest':'');
+    d.innerHTML=`<span class="ps-dot"></span>P${pd.period}`;
+    el.appendChild(d);
+  });
+}
+
+// ── RENDER ALL ─────────────────────────────────────────────────────────────
+function renderAll(){
+  if(periods.length===0)return;
+  const pd=periods[periods.length-1];
+  const forecast=computeBaselineForecast(pd);
+  const capPlan=computeCapPlan(pd,forecast);
+  setBadge('bl-badge',`Forecast P${pd.period+1}`);
+  setBadge('intel-badge',`P${pd.period}`);
+  setBadge('cap-badge',`Forecast P${pd.period+1}`);
+  setBadge('dec-badge',`P${pd.period}`);
+  renderBaseline(pd,forecast,capPlan);
+  renderIntel(pd);
+  renderCapacity(pd,forecast,capPlan);
+  renderDecisions(pd,forecast);
+  renderHistory();
+}
+
+function setBadge(id,text){const el=document.getElementById(id);if(el){el.textContent=text;el.style.display='';}}
+
+// ── BASELINE ───────────────────────────────────────────────────────────────
+function renderBaseline(pd,forecast,capPlan){
+  const el=document.getElementById('bl-body');
+  const nextP=pd.period+1;
+  const p1shareBaseline=Object.values(forecast.P1).filter(v=>v&&v.share).reduce((s,v)=>s+v.share,0);
+  const p2shareBaseline=Object.values(forecast.P2).filter(v=>v&&v.share).reduce((s,v)=>s+v.share,0);
+  const avgShare=((p1shareBaseline+p2shareBaseline)/12);
+  const trendPeriods=Math.min(periods.length,3);
+
+  let html=`
+  <div class="good-b" style="margin-bottom:14px">
+    <strong>Trend engine active</strong> — using ${trendPeriods} period${trendPeriods>1?'s':''} of history to project competitor behaviour. 
+    ${trendPeriods<3?`Upload ${3-trendPeriods} more period${3-trendPeriods>1?'s':''} for full 3-period trend accuracy.`:'3-period trend fully active.'}
+  </div>
+  <div class="g4">
+    <div class="mc ${capPlan.P1.surplus<0?'wc':capPlan.P1.utilPct>90?'ac':'gc'}">
+      <div class="mc-l">P1 forecast demand</div>
+      <div class="mc-v">${(forecast.P1._total/1000).toFixed(1)}K</div>
+      <div class="mc-s">units next period</div>
+    </div>
+    <div class="mc ${capPlan.P2.surplus<0?'wc':capPlan.P2.utilPct>90?'ac':'gc'}">
+      <div class="mc-l">P2 forecast demand</div>
+      <div class="mc-v">${(forecast.P2._total/1000).toFixed(1)}K</div>
+      <div class="mc-s">units next period</div>
+    </div>
+    <div class="mc">
+      <div class="mc-l">P1 capacity utilisation</div>
+      <div class="mc-v ${capPlan.P1.utilPct>100?'dn':capPlan.P1.utilPct>90?'':''}">${capPlan.P1.utilPct}%</div>
+      <div class="mc-s">${capPlan.P1.surplus>=0?'+':''}${(capPlan.P1.surplus/1000).toFixed(1)}K units ${capPlan.P1.surplus>=0?'surplus':'shortfall'}</div>
+    </div>
+    <div class="mc">
+      <div class="mc-l">P2 capacity utilisation</div>
+      <div class="mc-v ${capPlan.P2.utilPct>100?'dn':capPlan.P2.utilPct>90?'':''}">${capPlan.P2.utilPct}%</div>
+      <div class="mc-s">${capPlan.P2.surplus>=0?'+':''}${(capPlan.P2.surplus/1000).toFixed(1)}K units ${capPlan.P2.surplus>=0?'surplus':'shortfall'}</div>
+    </div>
+  </div>`;
+
+  ['P1','P2'].forEach(prod=>{
+    html+=`<div class="card"><div class="ct">${prod} — baseline market share & demand by market (P${nextP})</div>
+    <table><thead><tr><th>Market</th><th class="r">Market size</th><th class="r">Forecast share</th><th class="r">Demand (units)</th><th class="r">vs current share</th><th class="r">Competitor price trend</th></tr></thead><tbody>`;
+    MKTS.forEach(mkt=>{
+      const f=forecast[prod][mkt];if(!f){html+=`<tr><td>${FLAGS[mkt]} ${mkt}</td><td colspan="5" class="r neu">—</td></tr>`;return;}
+      const currShare=pd.shares[prod].co1;
+      const delta=f.share-currShare;
+      const dc=delta>0.005?'up':delta<-0.005?'dn':'neu';
+      const pTrend=f.trendSlope;
+      const pClass=pTrend<-50?'dn':pTrend>50?'up':'neu';
+      const pLabel=pTrend<-50?`↓ cutting (${pTrend.toFixed(0)}/period)`:pTrend>50?`↑ raising (${pTrend.toFixed(0)}/period)`:'→ stable';
+      html+=`<tr><td>${FLAGS[mkt]} ${mkt}</td>
+        <td class="r">${(f.mktSize/1000).toFixed(0)}K</td>
+        <td class="r"><span class="${f.share>0.22?'up':f.share<0.17?'dn':'neu'}">${(f.share*100).toFixed(1)}%</span></td>
+        <td class="r">${f.demand.toLocaleString()}</td>
+        <td class="r"><span class="${dc}">${delta>=0?'+':''}${(delta*100).toFixed(1)}pp</span></td>
+        <td class="r"><span class="${pClass}" style="font-size:10px">${pLabel}</span></td>
+      </tr>`;
+    });
+    const totDem=forecast[prod]._total;
+    const totMkt=MKTS.reduce((s,m)=>s+(forecast[prod][m]?.mktSize||0),0);
+    html+=`<tr style="border-top:0.5px solid var(--bdm)"><td style="font-weight:500">Total</td><td class="r">${(totMkt/1000).toFixed(0)}K</td><td class="r">${totMkt>0?(totDem/totMkt*100).toFixed(1)+'%':'—'}</td><td class="r" style="font-weight:500">${totDem.toLocaleString()}</td><td class="r">—</td><td class="r">—</td></tr>`;
+    html+=`</tbody></table></div>`;
+  });
+
+  html+=`<p class="note">Baseline assumes you hold all inputs constant at P${pd.period} levels. Competitor prices, quality, and green projected forward using linear trend over last ${trendPeriods} period${trendPeriods>1?'s':''}. Use Decision Tools to model specific changes.</p>`;
+  el.innerHTML=html;
+}
+
+// ── INTEL ──────────────────────────────────────────────────────────────────
+function renderIntel(pd){
+  const el=document.getElementById('intel-body');
+  const prev=getPrev(pd);
+  const sigs=[];
+
+  [2,3,4,5].forEach(co=>{
+    MKTS.forEach(mkt=>{
+      const old=prev.prices.P1[`co${co}`]?.[mkt],nw=pd.prices.P1[`co${co}`]?.[mkt];
+      if(!old||!nw||old===0)return;
+      const d=(nw-old)/old;
+      if(d<-0.07) sigs.push({t:'w',msg:`Co${co} cut P1 price in ${FLAGS[mkt]} ${mkt} by ${Math.abs(d*100).toFixed(0)}% → ${nw.toFixed(0)}`});
+      if(d>0.07)  sigs.push({t:'g',msg:`Co${co} raised P1 price in ${FLAGS[mkt]} ${mkt} by ${(d*100).toFixed(0)}% — relative position improves if you hold`});
+    });
+    const dq=pd.quality.P1[`co${co}`]-prev.quality.P1[`co${co}`];
+    if(dq>0.03) sigs.push({t:'w',msg:`Co${co} quality up ${dq.toFixed(3)} — accelerating R&D. Now at ${pd.quality.P1[`co${co}`].toFixed(3)}`});
+  });
+  const avgCompQ=[2,3,4,5].reduce((s,co)=>s+pd.quality.P1[`co${co}`],0)/4;
+  if(pd.quality.P1.co1<avgCompQ-0.03) sigs.push({t:'r',msg:`Your quality (${pd.quality.P1.co1.toFixed(3)}) below competitor avg (${avgCompQ.toFixed(3)}) — lagged share loss compounds each period`});
+  if(pd.quality.P1.co1>avgCompQ+0.05) sigs.push({t:'g',msg:`Quality advantage +${(pd.quality.P1.co1-avgCompQ).toFixed(3)} above avg — sustain R&D investment`});
+  const prevRG=prev.greenCo1.P1/(prev.greenAvg.P1||0.6593);
+  const currRG=pd.greenCo1.P1/(pd.greenAvg.P1||0.6593);
+  if(currRG<prevRG-0.03) sigs.push({t:'r',msg:`Green position fell ${(prevRG-currRG).toFixed(3)} — competitors outpacing. Lagged impact hits next period.`});
+  if(currRG>prevRG+0.02) sigs.push({t:'g',msg:`Green position improved to ${currRG.toFixed(3)} — advantage feeds into next period's share`});
+  if(sigs.length===0) sigs.push({t:'i',msg:'No significant competitor movements this period.'});
+
+  let html=`<div style="margin-bottom:14px">${sigs.map(s=>`<div class="sig ${s.t}"><span style="flex-shrink:0">${s.t==='w'?'⚠️':s.t==='g'?'✅':s.t==='r'?'🔴':'ℹ️'}</span><span>${s.msg}</span></div>`).join('')}</div>`;
+
+  html+=`<div class="g2">
+    <div class="card"><div class="ct">Relative price positioning — P1</div>
+    <table><thead><tr><th>Market</th>${[1,2,3,4,5].map(co=>`<th class="r">Co${co}${co===1?' ★':''}</th>`).join('')}</tr></thead><tbody>`;
+  MKTS.forEach(mkt=>{
+    const ps=Object.values(pd.prices.P1).map(c=>c[mkt]).filter(v=>v>0);
+    const avg=ps.reduce((a,b)=>a+b,0)/ps.length;
+    html+=`<tr><td>${FLAGS[mkt]} ${mkt}</td>${[1,2,3,4,5].map(co=>{const r=avg>0?pd.prices.P1[`co${co}`][mkt]/avg:1;return`<td class="r"><span class="${r>1.05?'dn':r<0.95?'up':'neu'}">${r.toFixed(3)}</span></td>`;}).join('')}</tr>`;
+  });
+  html+=`</tbody></table></div>
+    <div class="card"><div class="ct">Quality & green summary</div>
+    <table><thead><tr><th>Metric</th><th class="r">You</th><th class="r">Comp avg</th><th class="r">Best comp</th><th class="r">Position</th></tr></thead><tbody>
+    <tr><td>Quality P1</td><td class="r">${pd.quality.P1.co1.toFixed(3)}</td><td class="r">${avgCompQ.toFixed(3)}</td><td class="r">${Math.max(...[2,3,4,5].map(co=>pd.quality.P1[`co${co}`])).toFixed(3)}</td><td class="r"><span class="${pd.quality.P1.co1>avgCompQ?'up':'dn'}">${pd.quality.P1.co1>avgCompQ?'▲ above':'▼ below'}</span></td></tr>
+    <tr><td>Quality P2</td><td class="r">${pd.quality.P2.co1.toFixed(3)}</td><td class="r">${([2,3,4,5].reduce((s,co)=>s+pd.quality.P2[`co${co}`],0)/4).toFixed(3)}</td><td class="r">${Math.max(...[2,3,4,5].map(co=>pd.quality.P2[`co${co}`])).toFixed(3)}</td><td class="r"><span class="${pd.quality.P2.co1>([2,3,4,5].reduce((s,co)=>s+pd.quality.P2[`co${co}`],0)/4)?'up':'dn'}">${pd.quality.P2.co1>([2,3,4,5].reduce((s,co)=>s+pd.quality.P2[`co${co}`],0)/4)?'▲ above':'▼ below'}</span></td></tr>
+    <tr><td>Green P1 (rel)</td><td class="r">${pd.greenCo1.P1.toFixed(4)}</td><td class="r">${pd.greenAvg.P1.toFixed(4)}</td><td class="r">—</td><td class="r"><span class="${pd.greenCo1.P1>pd.greenAvg.P1?'up':'dn'}">${(pd.greenCo1.P1/pd.greenAvg.P1).toFixed(3)}×</span></td></tr>
+    </tbody></table></div>
+  </div>`;
+  el.innerHTML=html;
+}
+
+// ── CAPACITY ───────────────────────────────────────────────────────────────
+function renderCapacity(pd,forecast,capPlan){
+  const el=document.getElementById('cap-body');
+  let html=`<div class="g4">`;
+  ['P1','P2'].forEach(prod=>{
+    const p=capPlan[prod];
+    const bc=p.surplus<0?'wc':p.utilPct>90?'ac':'gc';
+    const bcs=p.budgetBinding?'wc':'';
+    html+=`
+    <div class="mc ${bc}"><div class="mc-l">${prod} utilisation</div><div class="mc-v">${p.utilPct}%</div><div class="mc-s">${Math.abs(p.surplus/1000).toFixed(1)}K ${p.surplus>=0?'surplus':'shortfall'}</div></div>
+    <div class="mc ${bcs}"><div class="mc-l">${prod} budget slack</div><div class="mc-v">$${Math.round(p.budgetSlack/1000)}K</div><div class="mc-s">${p.budgetBinding?'⚠ Budget binding':'Cap binding'}</div></div>`;
+  });
+  html+=`</div>`;
+
+  ['P1','P2'].forEach(prod=>{
+    const p=capPlan[prod];
+    const barPct=Math.min(100,p.utilPct);
+    const barColor=p.utilPct>100?'#A32D2D':p.utilPct>90?'#BA7517':'#639922';
+    html+=`<div class="card"><div class="ct">${prod} — capacity plan for P${pd.period+1}</div>
+    <div style="display:grid;grid-template-columns:200px 1fr;gap:20px">
+      <div>
+        <table>
+          <tr><td style="color:var(--tx3);font-size:11px">Current capacity</td><td class="r">${p.cap.toLocaleString()}</td></tr>
+          <tr><td style="color:var(--tx3);font-size:11px">− Depreciation</td><td class="r dn">−${p.depUnits.toLocaleString()}</td></tr>
+          <tr><td style="color:var(--tx3);font-size:11px">+ Construction</td><td class="r ${p.constUnits>0?'up':'neu'}">${p.constUnits>0?'+':''}${p.constUnits}</td></tr>
+          <tr><td style="color:var(--tx3);font-size:11px">Effective production</td><td class="r" style="font-weight:500">${p.effProd.toLocaleString()}</td></tr>
+          <tr><td style="color:var(--tx3);font-size:11px">+ Inventory</td><td class="r">${p.inv.toLocaleString()}</td></tr>
+          <tr style="border-top:0.5px solid var(--bdm)"><td style="font-weight:500;font-size:11px">Available</td><td class="r" style="font-weight:600">${p.available.toLocaleString()}</td></tr>
+          <tr><td style="color:var(--tx3);font-size:11px">Forecast demand</td><td class="r">${p.fcDemand.toLocaleString()}</td></tr>
+          <tr><td style="font-weight:500;font-size:11px">Surplus/(shortfall)</td><td class="r"><span class="${p.surplus>=0?'up':'dn'}" style="font-weight:600">${p.surplus>=0?'+':''}${p.surplus.toLocaleString()}</span></td></tr>
+        </table>
+        <div style="margin-top:10px">
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--tx3);margin-bottom:2px"><span>Utilisation</span><span>${p.utilPct}%</span></div>
+          <div style="background:var(--sur3);border-radius:3px;height:8px;overflow:hidden"><div style="height:100%;border-radius:3px;width:${barPct}%;background:${barColor}"></div></div>
+        </div>
+      </div>
+      <div>
+        <table>
+          <thead><tr><th>Market</th><th class="r">Forecast share</th><th class="r">Demand</th></tr></thead>
+          <tbody>
+          ${MKTS.map(mkt=>{const f=forecast[prod][mkt];if(!f)return'';const sc=f.share>0.22?'up':f.share<0.17?'dn':'neu';return`<tr><td>${FLAGS[mkt]} ${mkt}</td><td class="r"><span class="${sc}">${(f.share*100).toFixed(1)}%</span></td><td class="r">${f.demand.toLocaleString()}</td></tr>`;}).join('')}
+          </tbody>
+        </table>
+        ${p.surplus<0?`<div class="bad-b" style="margin-top:8px">Shortfall of ${Math.abs(p.surplus).toLocaleString()} units. Each $${PROD[prod].constCost}K construction = 1,000 units.</div>`:''}
+        ${p.budgetBinding?`<div class="warn-b" style="margin-top:8px">Budget binding — raise it to unlock ${(p.nextCap-p.budgetUnits).toLocaleString()} additional units.</div>`:''}
+        ${p.budgetSlack<300000&&!p.budgetBinding?`<div class="warn-b" style="margin-top:8px">Only $${Math.round(p.budgetSlack/1000)}K budget slack.</div>`:''}
+      </div>
+    </div></div>`;
+  });
+  el.innerHTML=html;
+}
+
+// ── DECISION TOOLS ─────────────────────────────────────────────────────────
+function renderDecisions(pd,forecast){
+  window._pd=pd;
+  window._nextP=pd.period+1;
+  const el=document.getElementById('dec-body');
+  const prev=getPrev(pd);
+  const nextP=pd.period+1;
+
+  // Pre-compute all relative values from latest period
+  const relVals={};
+  ['P1','P2'].forEach(prod=>{
+    relVals[prod]={};
+    MKTS.forEach(mkt=>{
+      const ps=Object.values(pd.prices[prod]).map(c=>c[mkt]).filter(v=>v>0);
+      const compAvg=ps.slice(1).reduce((a,b)=>a+b,0)/Math.max(1,ps.length-1);
+      const tot=pd.mktTotalP1[mkt]||1;
+      const co1M=pd.mktCo1P1[mkt]||1;
+      const ptot=prev.mktTotalP1?.[mkt]||tot;
+      const pco1M=prev.mktCo1P1?.[mkt]||co1M;
+      relVals[prod][mkt]={
+        compAvgPrice:compAvg,
+        yourPrice:pd.prices[prod].co1[mkt],
+        relMkt:co1M/tot*5,
+        lagRelMkt:pco1M/ptot*5,
+        qual:pd.quality[prod].co1,
+        green:(pd.greenCo1?.[prod]||0.6593)/(pd.greenAvg?.[prod]||0.6593),
+        baselineShare:forecast[prod]?.[mkt]?.share||pd.shares[prod].co1,
+        mktSize:fmkt(prod==='P1'?HIST1[mkt]:HIST2[mkt],nextP),
+      };
+    });
+  });
+
+  el.innerHTML=`
+  <div class="info-b" style="margin-bottom:14px">All values pre-loaded from P${pd.period}. Enter only the decision-specific input for each tool.</div>
+  <div class="tool-tabs" id="dt-tabs">
+    <div class="tt active" onclick="switchTool('t-stockout',this)">01 Avoid stockout</div>
+    <div class="tt" onclick="switchTool('t-share',this)">02 Gain share</div>
+    <div class="tt" onclick="switchTool('t-comp',this)">03 Competitor response</div>
+    <div class="tt" onclick="switchTool('t-green',this)">04 Green position</div>
+    <div class="tt" onclick="switchTool('t-quality',this)">05 Quality plan</div>
+    <div class="tt" onclick="switchTool('t-eva',this)">06 Maximize EVA</div>
+    <div class="tt" onclick="switchTool('t-mktalloc',this)">07 Marketing allocation</div>
+  </div>
+
+  <!-- T1: STOCKOUT -->
+  <div id="t-stockout" class="tool-panel active">
+    <div class="one-input">
+      <div class="oi-label"><strong>Avoid stockout via price</strong>What is your total available supply next period? The tool finds the price needed to bring demand down to that ceiling, across all markets.</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div class="oi-field"><label>P1 supply ceiling (units)</label><input type="number" id="st-supply-p1" value="${capPlan_cached?capPlan_cached.P1.available:350000}"></div>
+        <div class="oi-field"><label>P2 supply ceiling (units)</label><input type="number" id="st-supply-p2" value="${capPlan_cached?capPlan_cached.P2.available:350000}"></div>
+        <button class="calc-btn" onclick="runStockout(window.rv,window._nextP)">Calculate</button>
+      </div>
+    </div>
+    <div id="memo-stockout"></div>
+  </div>
+
+  <!-- T2: SHARE GAIN -->
+  <div id="t-share" class="tool-panel">
+    <div class="one-input">
+      <div class="oi-label"><strong>Target market share gain</strong>Enter the share gain you want and the market to focus on. The tool shows what price cut and marketing increase each achieve.</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <div class="oi-field"><label>Product</label><select id="sg-prod" style="width:80px"><option>P1</option><option>P2</option></select></div>
+        <div class="oi-field"><label>Market</label><select id="sg-mkt" style="width:100px">${MKTS.map(m=>`<option>${m}</option>`).join('')}</select></div>
+        <div class="oi-field"><label>Target share gain (pp)</label><input type="number" id="sg-gain" value="2" step="0.5" style="width:90px"></div>
+        <button class="calc-btn" onclick="runShareGain(window.rv,window._nextP)">Calculate</button>
+      </div>
+    </div>
+    <div id="memo-share"></div>
+  </div>
+
+  <!-- T3: COMPETITOR -->
+  <div id="t-comp" class="tool-panel">
+    <div class="one-input">
+      <div class="oi-label"><strong>Respond to competitor price move</strong>Enter a competitor's new price in a specific market. The tool shows hold/match/counter options with forecast share for each.</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <div class="oi-field"><label>Product</label><select id="cr-prod" style="width:80px"><option>P1</option><option>P2</option></select></div>
+        <div class="oi-field"><label>Market</label><select id="cr-mkt" style="width:100px">${MKTS.map(m=>`<option>${m}</option>`).join('')}</select></div>
+        <div class="oi-field"><label>New competitor avg price</label><input type="number" id="cr-newavg" value="0" style="width:120px"><div style="font-size:9px;color:var(--tx3);font-family:'DM Mono',monospace">local currency</div></div>
+        <button class="calc-btn" onclick="runCompResponse(window.rv,window._nextP)">Analyse</button>
+      </div>
+    </div>
+    <div id="memo-comp"></div>
+  </div>
+
+  <!-- T4: GREEN -->
+  <div id="t-green" class="tool-panel">
+    <div class="one-input">
+      <div class="oi-label"><strong>Restore green position</strong>
+        <span class="baseline-pill">Your green: ${pd.greenCo1.P1.toFixed(4)} · Avg: ${pd.greenAvg.P1.toFixed(4)} · Rel: ${(pd.greenCo1.P1/pd.greenAvg.P1).toFixed(3)}×</span>
+        <br>What relative green position do you want to achieve, and in how many periods?
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <div class="oi-field"><label>Target relative green</label><input type="number" id="gr-target" value="1.10" step="0.05" style="width:90px"></div>
+        <div class="oi-field"><label>Periods to target</label><input type="number" id="gr-periods" value="3" min="1" max="10" style="width:80px"></div>
+        <button class="calc-btn" onclick="runGreen(window._pd,window.rv)">Calculate spend</button>
+      </div>
+    </div>
+    <div id="memo-green"></div>
+  </div>
+
+  <!-- T5: QUALITY -->
+  <div id="t-quality" class="tool-panel">
+    <div class="one-input">
+      <div class="oi-label"><strong>Quality investment plan</strong>
+        <span class="baseline-pill">Your quality P1: ${pd.quality.P1.co1.toFixed(3)} · Comp avg: ${([2,3,4,5].reduce((s,co)=>s+pd.quality.P1[`co${co}`],0)/4).toFixed(3)}</span>
+        <br>Set a quality target and timeline. The tool calculates required R&D spend.
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <div class="oi-field"><label>Product</label><select id="ql-prod" style="width:80px"><option>P1</option><option>P2</option></select></div>
+        <div class="oi-field"><label>Target quality index</label><input type="number" id="ql-target" value="1.10" step="0.01" style="width:90px"></div>
+        <div class="oi-field"><label>In N periods</label><input type="number" id="ql-periods" value="5" min="1" max="15" style="width:70px"></div>
+        <div class="oi-field"><label>Competitor R&D est ($000)</label><input type="number" id="ql-comp-rd" value="1300" style="width:100px"></div>
+        <button class="calc-btn" onclick="runQuality(window._pd,window.rv)">Calculate R&D</button>
+      </div>
+    </div>
+    <div id="memo-quality"></div>
+  </div>
+
+  <!-- T6: EVA -->
+  <div id="t-eva" class="tool-panel">
+    <div class="one-input">
+      <div class="oi-label"><strong>Maximize EVA</strong>Find the price that maximises contribution margin given your cost structure and competitor inputs — shown for all markets simultaneously.</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <div class="oi-field"><label>Product</label><select id="ev-prod" style="width:80px"><option>P1</option><option>P2</option></select></div>
+        <button class="calc-btn" onclick="runEVA(window.rv,window._nextP)">Find optimal prices</button>
+      </div>
+    </div>
+    <div id="memo-eva"></div>
+  </div>
+
+  <!-- T7: MARKETING -->
+  <div id="t-mktalloc" class="tool-panel">
+    <div class="one-input">
+      <div class="oi-label"><strong>Marketing budget allocation</strong>Enter your total marketing budget. The tool ranks all markets by return on spend and recommends an allocation.</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <div class="oi-field"><label>Product</label><select id="ma-prod" style="width:80px"><option>P1</option><option>P2</option></select></div>
+        <div class="oi-field"><label>Total budget ($000 USD)</label><input type="number" id="ma-budget" value="4000" style="width:110px"></div>
+        <button class="calc-btn" onclick="runMktAlloc(window._pd,window.rv,window._nextP)">Allocate</button>
+      </div>
+    </div>
+    <div id="memo-mktalloc"></div>
+  </div>`;
+
+  // Store relVals and capPlan for tool functions
+  window.rv=relVals;
+  window.capPlan_cached=computeCapPlan(pd,forecast);
+
+  // Fix supply ceiling defaults now we have cap plan
+  const cp=window.capPlan_cached;
+  const s1=document.getElementById('st-supply-p1');const s2=document.getElementById('st-supply-p2');
+  if(s1) s1.value=Math.round(cp.P1.available);
+  if(s2) s2.value=Math.round(cp.P2.available);
+}
+
+let capPlan_cached=null;
+
+function switchTool(id,btn){
+  document.querySelectorAll('.tool-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tt').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── TOOL CALCS ──────────────────────────────────────────────────────────────
+function fmt(n,d=2){if(typeof n!=='number'||isNaN(n)||!isFinite(n))return'—';const dd=Math.max(0,Math.min(20,Math.floor(Math.abs(d))));return n.toLocaleString('en-US',{minimumFractionDigits:dd,maximumFractionDigits:dd});}
+function fmtPct(n){if(typeof n!=='number'||isNaN(n)||!isFinite(n))return'—';return(n*100).toFixed(1)+'%';}
+function fmtPP(n){if(typeof n!=='number'||isNaN(n)||!isFinite(n))return'—';const v=parseFloat((n*100).toFixed(1));return(v>=0?'+':'')+v+'pp';}
+function showMemo(id,html){const el=document.getElementById(id);if(el){el.innerHTML=html;el.className='memo show';}}
+function mHead(title,period,prod,scope){return`<div class="memo-hdr"><button class="print-btn" onclick="window.print()">Print / PDF</button><div class="memo-to">Decision memo · Company 1</div><div class="memo-title">${title}</div><div class="memo-meta">${prod} · ${scope} · P${period} → P${period+1} · ${today()}</div></div>`;}
+
+function runStockout(rv,nextP){
+  const supplyP1=parseFloat(document.getElementById('st-supply-p1')?.value)||350000;
+  const supplyP2=parseFloat(document.getElementById('st-supply-p2')?.value)||350000;
+  let rows='';
+  let anyAction=false;
+  ['P1','P2'].forEach(prod=>{
+    const supply=prod==='P1'?supplyP1:supplyP2;
+    MKTS.forEach(mkt=>{
+      const c=COEFS[`${prod}_${mkt}`];if(!c)return;
+      const v=rv[prod][mkt];
+      const targetShare=supply/v.mktSize;
+      if(targetShare>=v.baselineShare){rows+=`<tr><td>${prod} ${FLAGS[mkt]} ${mkt}</td><td class="r neu">No action</td><td class="r">${fmtPct(v.baselineShare)}</td><td class="r">${fmtPct(targetShare)}</td><td class="r neu">—</td></tr>`;return;}
+      const reqRP=rPriceForShare(c,targetShare,v.relMkt,v.lagRelMkt,v.qual,v.green);
+      const reqPrice=Math.round(reqRP*v.compAvgPrice);
+      const changePct=(reqRP-(v.yourPrice/v.compAvgPrice))*100;
+      anyAction=true;
+      rows+=`<tr><td>${prod} ${FLAGS[mkt]} ${mkt}</td><td class="r"><strong>${reqPrice.toLocaleString()} ${CURR_SYM[mkt]}</strong></td><td class="r ${v.baselineShare>0.22?'up':v.baselineShare<0.17?'dn':'neu'}">${fmtPct(v.baselineShare)}</td><td class="r dn">${fmtPct(targetShare)}</td><td class="r ${changePct>0?'dn':''}">${changePct>=0?'+':''}${changePct.toFixed(1)}%</td></tr>`;
+    });
+  });
+  showMemo('memo-stockout',mHead('Stockout Prevention: Required Price Adjustments',nextP-1,'P1 & P2','All markets')+`
+    ${anyAction?'':'<div class="good-b">Supply exceeds baseline forecast demand for all markets at current prices. No price action required.</div>'}
+    <div class="memo-st">Required price by market</div>
+    <table><thead><tr><th>Market</th><th class="r">Recommended price</th><th class="r">Baseline share</th><th class="r">Target share</th><th class="r">Price change</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="memo-st">Interpretation</div>
+    <div class="memo-body">Supply ceilings: P1 = ${supplyP1.toLocaleString()} units, P2 = ${supplyP2.toLocaleString()} units. Markets showing "No action" have baseline forecast demand already within the supply ceiling — no price adjustment needed. Markets with a recommended price require an increase to shed excess demand. The price ceiling is shared across all markets so you may prefer to concentrate the demand reduction in lower-margin markets rather than raising price uniformly.</div>
+    <div class="warn-b" style="margin-top:10px">If a shortfall exists, prioritise demand reduction in your lowest-CM markets first (Mexico for both products) before raising prices in high-CM markets (Germany, UK).</div>`);
+}
+
+function runShareGain(rv,nextP){
+  const prod=document.getElementById('sg-prod')?.value||'P1';
+  const mkt=document.getElementById('sg-mkt')?.value||'Japan';
+  const gainPP=(parseFloat(document.getElementById('sg-gain')?.value)||2)/100;
+  const c=COEFS[`${prod}_${mkt}`];if(!c)return;
+  const v=rv[prod][mkt];
+  const targetShare=v.baselineShare+gainPP;
+  const reqRP=rPriceForShare(c,targetShare,v.relMkt,v.lagRelMkt,v.qual,v.green);
+  const reqPrice=Math.round(reqRP*v.compAvgPrice);
+  const priceDelta=(reqRP-(v.yourPrice/v.compAvgPrice))*100;
+  const bMkt=(c.relMarketing||0)+(c.lagRelMarketing||0);
+  const nonMkt=c.const+(c.rPrice||0)*(v.yourPrice/v.compAvgPrice)+(c.lagRelQual||c.rQual||0)*v.qual+(c.lagRelGreen||0)*v.green;
+  const reqRelMkt=bMkt>0?(targetShare-nonMkt)/bMkt:null;
+  const reqSOV=reqRelMkt?reqRelMkt/5:null;
+  const totMktUSD=(v.mktSize*(v.compAvgPrice/FX[mkt]))*0.8;
+  const reqMktUSD=reqSOV&&reqSOV>0?reqSOV*totMktUSD*5:null;
+  const currMktUSD=(v.relMkt/5)*totMktUSD*5;
+  const addUnits=Math.round(v.mktSize*gainPP);
+  showMemo('memo-share',mHead(`Share Gain: +${(gainPP*100).toFixed(1)}pp in ${mkt}`,nextP-1,prod,mkt)+`
+    <div class="rec-box"><div class="rl">Route 1 — Price reduction</div><div class="rv">${reqPrice.toLocaleString()} ${CURR_SYM[mkt]}</div><div class="rs">${priceDelta.toFixed(1)}% vs competitor average · rPrice = ${reqRP.toFixed(3)}</div></div>
+    ${reqMktUSD?`<div class="rec-box" style="background:var(--sur3);color:var(--tx)"><div class="rl">Route 2 — Marketing increase</div><div class="rv">$${Math.round(reqMktUSD/1000).toLocaleString()}K USD equiv</div><div class="rs">SOV ${fmtPct(reqSOV)} (+${Math.round((reqMktUSD-currMktUSD)/1000)}K above current)</div></div>`:''}
+    <div class="memo-st">Tradeoff</div>
+    <div class="memo-body">Both routes add <strong>${addUnits.toLocaleString()} units</strong> of demand in ${mkt}. Route 1 (price) is immediate. Route 2 (marketing) has a current + lag component — full benefit takes two periods. Verify that supply can absorb the additional ${addUnits.toLocaleString()} units before committing to either route.</div>
+    ${targetShare>0.30?`<div class="warn-b">Target share ${fmtPct(targetShare)} is high — confirm supply headroom before pursuing.</div>`:''}`);
+}
+
+function runCompResponse(rv,nextP){
+  const prod=document.getElementById('cr-prod')?.value||'P1';
+  const mkt=document.getElementById('cr-mkt')?.value||'Japan';
+  const newAvg=parseFloat(document.getElementById('cr-newavg')?.value)||0;
+  if(!newAvg){showMemo('memo-comp','<div class="warn-b">Enter the new competitor average price.</div>');return;}
+  const c=COEFS[`${prod}_${mkt}`];if(!c)return;
+  const v=rv[prod][mkt];
+  const oldAvg=v.compAvgPrice;
+  const cut=(newAvg-oldAvg)/oldAvg;
+  const shHold=shareCalc(c,v.yourPrice/newAvg,v.relMkt,v.lagRelMkt,v.qual,v.green);
+  const shMatch=shareCalc(c,1.0,v.relMkt,v.lagRelMkt,v.qual,v.green);
+  const shPrior=shareCalc(c,v.yourPrice/oldAvg,v.relMkt,v.lagRelMkt,v.qual,v.green);
+  const shCounter=shareCalc(c,(v.yourPrice*(1+cut))/newAvg,v.relMkt,v.lagRelMkt,v.qual,v.green);
+  showMemo('memo-comp',mHead(`Competitor Response: ${cut>=0?'+':''}${(cut*100).toFixed(1)}% Move in ${mkt}`,nextP-1,prod,mkt)+`
+    <div class="memo-st">What happened</div>
+    <div class="memo-body">Competitor avg moved <strong>${oldAvg.toLocaleString()} → ${newAvg.toLocaleString()} ${CURR_SYM[mkt]}</strong> (${cut>=0?'+':''}${(cut*100).toFixed(1)}%). Your price ${v.yourPrice.toLocaleString()} is now at <strong>${(v.yourPrice/newAvg).toFixed(3)}×</strong> the new average.</div>
+    <table style="margin-top:12px"><thead><tr><th>Option</th><th class="r">Your price</th><th class="r">Forecast share</th><th class="r">vs prior</th></tr></thead><tbody>
+      <tr><td>Hold price</td><td class="r">${v.yourPrice.toLocaleString()}</td><td class="r">${fmtPct(shHold)}</td><td class="r"><span class="${shHold>=shPrior?'up':'dn'}">${fmtPP(shHold-shPrior)}</span></td></tr>
+      <tr style="background:var(--sur2)"><td><strong>Match avg</strong></td><td class="r"><strong>${Math.round(newAvg).toLocaleString()}</strong></td><td class="r"><strong>${fmtPct(shMatch)}</strong></td><td class="r"><span class="${shMatch>=shPrior?'up':'dn'}">${fmtPP(shMatch-shPrior)}</span></td></tr>
+      <tr><td>Counter (mirror %)</td><td class="r">${Math.round(v.yourPrice*(1+cut)).toLocaleString()}</td><td class="r">${fmtPct(shCounter)}</td><td class="r"><span class="${shCounter>=shPrior?'up':'dn'}">${fmtPP(shCounter-shPrior)}</span></td></tr>
+    </tbody></table>
+    <div class="memo-st">Recommendation</div>
+    <div class="memo-body">${cut<-0.05?`A ${(Math.abs(cut)*100).toFixed(0)}% cut is aggressive. Your quality/green position means you can absorb ${fmtPP(shHold-shPrior)} of share loss by holding. Evaluate whether ${fmtPct(shHold)} share is acceptable before reacting — a reactive price war benefits no one.`:`The competitor's move ${cut>0?'improves your relative position if you hold. No action likely needed.':'is modest. Hold price and monitor for a follow-up move next period.'}`}</div>`);
+}
+
+function runGreen(pd,rv){
+  const target=parseFloat(document.getElementById('gr-target')?.value)||1.10;
+  const nP=parseInt(document.getElementById('gr-periods')?.value)||3;
+  const yours=pd.greenCo1.P1,avg=pd.greenAvg.P1;
+  const curr=yours/avg;
+  const targetAbs=target*avg;
+  const gap=(targetAbs-yours)/nP;
+  const reqAdd=gap/0.000824;
+  const currSpendEst=yours/0.000824/60;
+  const reqTotal=Math.max(0,currSpendEst+reqAdd);
+  const lagCoef=COEFS.P1_Japan.lagRelGreen||0;
+  const shareGain=lagCoef*(target-curr);
+  showMemo('memo-green',mHead(`Green Investment Plan: Target ${target.toFixed(2)}× in ${nP} Periods`,pd.period,'P1','All markets')+`
+    <div class="memo-st">Current position</div>
+    <div class="memo-body">Your green: <strong>${yours.toFixed(4)}</strong> · Industry avg: <strong>${avg.toFixed(4)}</strong> · Relative: <strong>${curr.toFixed(3)}×</strong>${curr<1?` — you are below average`:` — you are above average`}.</div>
+    <div class="rec-box"><div class="rl">Eco consulting spend required</div><div class="rv">$${Math.round(reqTotal).toLocaleString()}K<span style="font-size:14px;opacity:.7"> / period</span></div><div class="rs">+$${Math.round(reqAdd).toLocaleString()}K above current · achieves ${target.toFixed(2)}× in ${nP} period${nP>1?'s':''}</div></div>
+    <div class="memo-st">Share impact (lagged)</div>
+    <div class="memo-body">At the Japan lagRelGreen coefficient of ${lagCoef.toFixed(4)}, reaching ${target.toFixed(2)}× parity adds <strong>${fmtPP(shareGain)}</strong> of share. The lag means this period's investment shows in next period's share — start immediately for P${pd.period+2} benefit.</div>
+    ${curr<1?`<div class="bad-b">You are currently below industry average. Every period this continues, competitors benefit from a lagged green advantage over you.</div>`:`<div class="good-b">You are already above average. This plan extends that lead further.</div>`}`);
+}
+
+function runQuality(pd,rv){
+  const prod=document.getElementById('ql-prod')?.value||'P1';
+  const target=parseFloat(document.getElementById('ql-target')?.value)||1.10;
+  const nP=parseInt(document.getElementById('ql-periods')?.value)||5;
+  const compRD=parseFloat(document.getElementById('ql-comp-rd')?.value)||1300;
+  const currQ=pd.quality[prod].co1;
+  const compQ=([2,3,4,5].reduce((s,co)=>s+pd.quality[prod][`co${co}`],0)/4);
+  const RATE=0.015;
+  const tRel=target/compQ;
+  const cRel=currQ/compQ;
+  const reqRatio=1+(tRel-1)/(RATE*nP);
+  const reqRD=compRD*reqRatio;
+  const qualCoef=COEFS[`${prod}_Japan`];
+  const qc=qualCoef?.lagRelQual||qualCoef?.rQual||0;
+  const shareGain=qc*(tRel-cRel);
+  showMemo('memo-quality',mHead(`Quality Plan: ${currQ.toFixed(3)} → ${target.toFixed(3)} in ${nP} Periods`,pd.period,prod,'All markets')+`
+    <div class="memo-st">Current position</div>
+    <div class="memo-body">Your quality: <strong>${currQ.toFixed(3)}</strong> · Competitor avg: <strong>${compQ.toFixed(3)}</strong> · Relative: <strong>${cRel.toFixed(3)}×</strong>. Target: <strong>${target.toFixed(3)}</strong> (${tRel.toFixed(3)}×) in ${nP} periods.</div>
+    <div class="rec-box"><div class="rl">R&D spend required</div><div class="rv">$${Math.round(reqRD).toLocaleString()}K<span style="font-size:14px;opacity:.7"> / period</span></div><div class="rs">${fmt(reqRatio,2)}× competitor spend · adds +$${Math.round(reqRD-compRD).toLocaleString()}K above estimated comp R&D</div></div>
+    <div class="memo-st">Share impact at target</div>
+    <div class="memo-body">Reaching quality ${target.toFixed(3)} adds <strong>${fmtPP(shareGain)}</strong> of share in Japan (reference market, lagRelQual = ${qc.toFixed(4)}). Quality improvement is gradual — ${fmtPP(shareGain/nP)} per period over ${nP} periods. Once above the competitor average, the advantage compounds as quality erodes slowly relative to the investment required to match it.</div>`);
+}
+
+function runEVA(rv,nextP){
+  const prod=document.getElementById('ev-prod')?.value||'P1';
+  const vc=prod==='P1'?14.2517:21.2289;
+  let rows='';
+  MKTS.forEach(mkt=>{
+    const c=COEFS[`${prod}_${mkt}`];if(!c)return;
+    const v=rv[prod][mkt];
+    const K=otherTerms(c,v.relMkt,v.lagRelMkt,v.qual,v.green);
+    const avgPriceUSD=v.compAvgPrice/FX[mkt];
+    const vcRel=avgPriceUSD>0?vc/avgPriceUSD:0.5;
+    const optRP=(c.rPrice*vcRel-K)/(2*c.rPrice);
+    const optRPclamped=Math.max(0.5,Math.min(1.8,optRP));
+    const optPrice=Math.round(optRPclamped*v.compAvgPrice);
+    const optShare=shareCalc(c,optRPclamped,v.relMkt,v.lagRelMkt,v.qual,v.green);
+    const optUnits=Math.round(v.mktSize*optShare);
+    const optRevUSD=(optRPclamped*v.compAvgPrice/FX[mkt])*optUnits;
+    const optCM=optRevUSD-vc*optUnits;
+    const parShare=shareCalc(c,1.0,v.relMkt,v.lagRelMkt,v.qual,v.green);
+    const parUnits=Math.round(v.mktSize*parShare);
+    const parCM=(v.compAvgPrice/FX[mkt])*parUnits-vc*parUnits;
+    const delta=optCM-parCM;
+    rows+=`<tr><td>${FLAGS[mkt]} ${mkt}</td><td class="r"><strong>${optPrice.toLocaleString()} ${CURR_SYM[mkt]}</strong></td><td class="r">${fmt(optRPclamped,3)}</td><td class="r">${fmtPct(optShare)}</td><td class="r">${optUnits.toLocaleString()}</td><td class="r">$${fmt(optCM/1000,0)}K</td><td class="r"><span class="${delta>0?'up':'dn'}">${delta>=0?'+':''}$${fmt(Math.abs(delta)/1000,0)}K</span></td></tr>`;
+  });
+  showMemo('memo-eva',mHead('EVA-Optimal Prices Across All Markets',nextP-1,prod,'All markets')+`
+    <div class="memo-st">EVA-optimal price per market</div>
+    <table><thead><tr><th>Market</th><th class="r">Optimal price</th><th class="r">rPrice</th><th class="r">Share</th><th class="r">Units</th><th class="r">Contribution</th><th class="r">vs parity</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="memo-st">How this is calculated</div>
+    <div class="math"><span class="cm">// Maximise: (price_USD − VC) × share × mkt_size</span>
+<span class="eq">rPrice* = (β_price × VC/avgPrice_USD − K) / (2 × β_price)</span>
+<span class="cm">// K = all non-price terms at current values. VC: P1=$${(14.2517).toFixed(2)}, P2=$${(21.2289).toFixed(2)}</span></div>
+    <div class="memo-body">Markets where the optimal price is above competitor average indicate genuine pricing power from your quality and green position. Markets where optimal is below parity have lower margins — consider whether volume is worth pursuing given supply constraints.</div>`);
+}
+
+function runMktAlloc(pd,rv,nextP){
+  const prod=document.getElementById('ma-prod')?.value||'P1';
+  const budget=parseFloat(document.getElementById('ma-budget')?.value)||4000;
+  const results=MKTS.map(mkt=>{
+    const c=COEFS[`${prod}_${mkt}`];if(!c)return null;
+    const v=rv[prod][mkt];
+    const bTotal=(c.relMarketing||0)+(c.lagRelMarketing||0);
+    const totMktUSD=(pd.mktTotalP1[mkt]||1)/FX[mkt]/1000;
+    const sharePerK=bTotal*(5/totMktUSD)/1000;
+    return{mkt,bTotal,totMktUSD,sharePerK,unitsPerK:sharePerK*v.mktSize};
+  }).filter(Boolean).sort((a,b)=>b.unitsPerK-a.unitsPerK);
+  const totalU=results.reduce((s,r)=>s+r.unitsPerK,0);
+  const rows=results.map((r,i)=>{
+    const alloc=budget*r.unitsPerK/totalU;
+    const pct=r.unitsPerK/totalU;
+    return`<tr ${i===0?'style="background:var(--sur2)"':''}><td>${FLAGS[r.mkt]} ${r.mkt}</td><td class="r">${fmt(r.bTotal,4)}</td><td class="r">$${fmt(r.totMktUSD,0)}K</td><td class="r">${fmt(r.unitsPerK,1)}</td><td class="r">${fmtPct(pct)}</td><td class="r"><strong>$${fmt(alloc,0)}K</strong></td></tr>`;
+  }).join('');
+  showMemo('memo-mktalloc',mHead(`Marketing Budget Allocation — $${budget.toLocaleString()}K USD`,nextP-1,prod,'All markets')+`
+    <table><thead><tr><th>Market</th><th class="r">Coef (curr+lag)</th><th class="r">Total mkt ($K USD)</th><th class="r">Units/$1K</th><th class="r">Alloc %</th><th class="r">$ Allocation</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="memo-st">Note</div>
+    <div class="memo-body">Ranked purely by units gained per dollar. Cross-check against your shipping priority order — spending heavily in a market where you have limited shipping allocation drives demand you cannot fulfil.</div>`);
+}
+
+// ── HISTORY ────────────────────────────────────────────────────────────────
+function renderHistory(){
+  if(periods.length<1)return;
+  const all=[P60,...periods];const labels=all.map(p=>`P${p.period}`);
+  const s1=all.map(p=>+(p.shares.P1.co1*100).toFixed(1));
+  const s2=all.map(p=>+(p.shares.P2.co1*100).toFixed(1));
+  const q1=all.map(p=>+p.quality.P1.co1.toFixed(3));
+  const qc=all.map(p=>+([2,3,4,5].reduce((s,co)=>s+p.quality.P1[`co${co}`],0)/4).toFixed(3));
+  const rg=all.map(p=>+(p.greenCo1.P1/(p.greenAvg.P1||0.6593)).toFixed(3));
+  const inv1=all.map(p=>p.inventory?.P1||0);
+  const inv2=all.map(p=>p.inventory?.P2||0);
+  document.getElementById('hist-body').innerHTML=`
+    <div class="g2">
+      <div class="card"><div class="ct">Market share — P1 & P2</div><div class="cw" style="height:180px"><canvas id="hc1" role="img" aria-label="Market share trend">Market share trend.</canvas></div></div>
+      <div class="card"><div class="ct">Quality — you vs competitor avg</div><div class="cw" style="height:180px"><canvas id="hc2" role="img" aria-label="Quality trend">Quality trend.</canvas></div></div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="ct">Relative green (>1.0 = above avg)</div><div class="cw" style="height:160px"><canvas id="hc3" role="img" aria-label="Green position">Green position.</canvas></div></div>
+      <div class="card"><div class="ct">Inventory buffer</div><div class="cw" style="height:160px"><canvas id="hc4" role="img" aria-label="Inventory">Inventory trend.</canvas></div></div>
+    </div>`;
+  const co={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10},color:'#5e5c57'},grid:{color:'rgba(255,255,255,0.05)'}},y:{ticks:{font:{size:10},color:'#5e5c57'},grid:{color:'rgba(255,255,255,0.05)'}}}};
+  const leg={display:true,position:'top',labels:{font:{size:10},boxWidth:8,padding:8,color:'#9e9b94'}};
+  setTimeout(()=>{
+    new Chart(document.getElementById('hc1'),{type:'line',data:{labels,datasets:[{label:'P1',data:s1,borderColor:'#378ADD',pointRadius:4,borderWidth:2,tension:0.3,backgroundColor:'rgba(55,138,221,0.08)'},{label:'P2',data:s2,borderColor:'#639922',pointRadius:4,borderWidth:1.5,tension:0.3,backgroundColor:'transparent',borderDash:[4,2]}]},options:{...co,plugins:{legend:leg},scales:{...co.scales,y:{...co.scales.y,ticks:{...co.scales.y.ticks,callback:v=>v+'%'}}}}});
+    new Chart(document.getElementById('hc2'),{type:'line',data:{labels,datasets:[{label:'You',data:q1,borderColor:'#378ADD',pointRadius:4,borderWidth:2,tension:0.3,backgroundColor:'transparent'},{label:'Comp avg',data:qc,borderColor:'#888780',pointRadius:3,borderWidth:1.5,tension:0.3,backgroundColor:'transparent',borderDash:[4,2]}]},options:{...co,plugins:{legend:leg},scales:{...co.scales,y:{...co.scales.y,min:0.8,ticks:{...co.scales.y.ticks,callback:v=>v.toFixed(2)}}}}});
+    new Chart(document.getElementById('hc3'),{type:'line',data:{labels,datasets:[{label:'Rel green',data:rg,borderColor:'#639922',pointRadius:4,borderWidth:2,tension:0.3,backgroundColor:'rgba(99,153,34,0.08)'},{label:'Parity',data:labels.map(()=>1.0),borderColor:'rgba(94,92,87,0.35)',pointRadius:0,borderWidth:1,borderDash:[3,3]}]},options:{...co,plugins:{legend:{display:false}},scales:{...co.scales,y:{...co.scales.y,ticks:{...co.scales.y.ticks,callback:v=>v.toFixed(2)}}}}});
+    new Chart(document.getElementById('hc4'),{type:'line',data:{labels,datasets:[{label:'P1',data:inv1,borderColor:'#378ADD',pointRadius:4,borderWidth:2,tension:0.3,backgroundColor:'transparent'},{label:'P2',data:inv2,borderColor:'#639922',pointRadius:4,borderWidth:1.5,tension:0.3,backgroundColor:'transparent',borderDash:[4,2]}]},options:{...co,plugins:{legend:leg},scales:{...co.scales,y:{...co.scales.y,ticks:{...co.scales.y.ticks,callback:v=>(v/1000).toFixed(0)+'K'}}}}});
+  },50);
+}
+
+// ── NAV ────────────────────────────────────────────────────────────────────
+const pgMap={upload:0,baseline:1,intel:2,capacity:3,decisions:4,history:5};
+function nav(name,el){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+  document.getElementById(`view-${name}`).classList.add('active');
+  if(el) el.classList.add('active');
+  else if(pgMap[name]!==undefined) document.querySelectorAll('.ni')[pgMap[name]]?.classList.add('active');
+  if(name==='history') renderHistory();
+}
+</script>
+</body>
+</html>

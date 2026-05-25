@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Demand Forecasting</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Serif+Display:ital@0;1&family=Syne:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -19,26 +19,25 @@
   --rd:#A32D2D;--rl:rgba(163,45,45,0.15);
   --r:6px;--rl2:10px;
 }
-body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--tx);font-size:13px;line-height:1.6;min-height:100vh}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--tx);font-size:13px;line-height:1.6;min-height:100vh}
 .shell{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
 
 /* SIDEBAR */
 .sidebar{background:var(--sur);border-right:0.5px solid var(--bd);padding:20px 0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
 .brand{padding:0 18px 18px;border-bottom:0.5px solid var(--bd);margin-bottom:14px}
-.brand-title{font-family:'DM Serif Display',serif;font-size:16px;letter-spacing:-0.3px;font-style:italic}
+.brand-title{font-family:'Segoe UI',system-ui,sans-serif;font-size:15px;font-weight:600;letter-spacing:-0.2px}
 .brand-sub{font-size:10px;color:var(--tx3);font-family:'DM Mono',monospace;margin-top:2px}
 .ns{font-size:9px;color:var(--tx3);letter-spacing:2px;text-transform:uppercase;padding:0 18px;margin:10px 0 3px}
 .ni{padding:7px 18px;font-size:12px;cursor:pointer;color:var(--tx2);display:flex;align-items:center;gap:8px;transition:all .12s;border-left:2px solid transparent}
 .ni:hover{background:var(--sur2);color:var(--tx)}
 .ni.active{background:var(--yl);color:var(--you);border-left-color:var(--you)}
-.ni .ico{font-size:13px;width:16px;text-align:center;flex-shrink:0}
 .period-stack{padding:0 10px;margin-top:8px}
 .ps-item{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:var(--r);cursor:pointer;font-family:'DM Mono',monospace;font-size:10px;color:var(--tx3);margin-bottom:2px}
 .ps-item:hover{background:var(--sur2);color:var(--tx2)}
 .ps-item.latest{color:var(--you)}
 .ps-dot{width:5px;height:5px;border-radius:50%;background:var(--gn);flex-shrink:0}
 .ps-dot.empty{background:var(--sur3)}
-.upload-chip{margin:10px 10px 0;padding:8px 12px;background:var(--sur2);border:0.5px dashed var(--bdm);border-radius:var(--r);color:var(--tx3);font-size:11px;font-family:'Syne',sans-serif;cursor:pointer;text-align:center;transition:all .15s}
+.upload-chip{margin:10px 10px 0;padding:8px 12px;background:var(--sur2);border:0.5px dashed var(--bdm);border-radius:var(--r);color:var(--tx3);font-size:11px;cursor:pointer;text-align:center;transition:all .15s}
 .upload-chip:hover{border-color:var(--you);color:var(--you)}
 #file-in{display:none}
 .sidebar-bottom{margin-top:auto;padding:14px 18px;border-top:0.5px solid var(--bd);font-size:10px;color:var(--tx3);font-family:'DM Mono',monospace;line-height:1.8}
@@ -47,8 +46,8 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--tx);font-siz
 .main{overflow-y:auto}
 .view{display:none;padding:28px 32px;max-width:1000px}.view.active{display:block}
 .vh{margin-bottom:24px}
-.vt{font-family:'DM Serif Display',serif;font-size:24px;letter-spacing:-0.5px;line-height:1.1}
-.vs{font-size:11px;color:var(--tx3);margin-top:4px;font-family:'DM Mono',monospace}
+.vt{font-family:'Segoe UI',system-ui,sans-serif;font-size:20px;font-weight:600;letter-spacing:-0.3px;line-height:1.2}
+.vs{font-size:11px;color:var(--tx3);margin-top:4px}
 
 /* CARDS */
 .card{background:var(--sur);border:0.5px solid var(--bd);border-radius:var(--rl2);padding:16px 18px;margin-bottom:14px}
@@ -106,7 +105,7 @@ tr:last-child td{border-bottom:none}
 .oi-field label{font-size:11px;color:var(--tx3);font-family:'DM Mono',monospace;white-space:nowrap}
 .oi-field input{width:140px;padding:8px 12px;border:0.5px solid var(--bdm);border-radius:var(--r);background:var(--sur);color:var(--tx);font-size:14px;font-family:'DM Mono',monospace;font-weight:500}
 .oi-field input:focus{outline:1px solid var(--you)}
-.calc-btn{padding:9px 20px;font-size:12px;font-family:'Syne',sans-serif;font-weight:500;cursor:pointer;border:none;border-radius:var(--r);background:var(--you);color:#fff;white-space:nowrap}
+.calc-btn{padding:9px 20px;font-size:12px;font-family:'Segoe UI',system-ui,sans-serif;font-weight:500;cursor:pointer;border:none;border-radius:var(--r);background:var(--you);color:#fff;white-space:nowrap}
 .calc-btn:hover{opacity:0.85}
 .baseline-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:10px;font-family:'DM Mono',monospace;background:var(--sur3);color:var(--tx3)}
 
@@ -115,7 +114,7 @@ tr:last-child td{border-bottom:none}
 .memo.show{display:block}
 .memo-hdr{border-bottom:1px solid rgba(255,255,255,0.2);padding-bottom:12px;margin-bottom:18px}
 .memo-to{font-size:9px;color:var(--tx3);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px}
-.memo-title{font-family:'DM Serif Display',serif;font-size:22px;letter-spacing:-0.3px;font-style:italic}
+.memo-title{font-family:'Segoe UI',system-ui,sans-serif;font-size:18px;font-weight:600;letter-spacing:-0.2px}
 .memo-meta{font-size:10px;color:var(--tx3);font-family:'DM Mono',monospace;margin-top:4px}
 .memo-st{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--tx3);margin-bottom:6px;margin-top:16px;font-family:'DM Mono',monospace}
 .memo-body{font-size:12px;color:var(--tx2);line-height:1.8}
@@ -124,7 +123,7 @@ tr:last-child td{border-bottom:none}
 .math .eq{color:var(--tx)}.math .cm{color:var(--tx3);font-style:italic}
 .rec-box{background:var(--you);color:#fff;border-radius:var(--rl2);padding:14px 18px;margin:10px 0}
 .rec-box .rl{font-size:9px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1px;opacity:.7;margin-bottom:3px}
-.rec-box .rv{font-family:'DM Serif Display',serif;font-size:26px;letter-spacing:-0.3px;line-height:1.1}
+.rec-box .rv{font-family:'Segoe UI',system-ui,sans-serif;font-size:24px;font-weight:700;letter-spacing:-0.2px;line-height:1.1}
 .rec-box .rs{font-size:11px;opacity:.75;margin-top:3px}
 .info-b{background:var(--yl);border-radius:var(--r);padding:10px 13px;font-size:11px;color:var(--you);margin:8px 0;line-height:1.6}
 .warn-b{background:var(--al);border-radius:var(--r);padding:10px 13px;font-size:11px;color:#EF9F27;margin:8px 0;line-height:1.6}
@@ -145,12 +144,12 @@ tr:last-child td{border-bottom:none}
     <div class="brand-sub">Company 1 · Hexmont</div>
   </div>
   <div class="ns">Navigate</div>
-  <div class="ni active" onclick="nav('upload',this)"><span class="ico">📥</span> Upload</div>
-  <div class="ni" onclick="nav('baseline',this)"><span class="ico">📊</span> Baseline forecast</div>
-  <div class="ni" onclick="nav('intel',this)"><span class="ico">🔍</span> Competitive intel</div>
-  <div class="ni" onclick="nav('capacity',this)"><span class="ico">🏭</span> Demand & capacity</div>
-  <div class="ni" onclick="nav('decisions',this)"><span class="ico">🎯</span> Decision tools</div>
-  <div class="ni" onclick="nav('history',this)"><span class="ico">📈</span> History</div>
+  <div class="ni active" onclick="nav('upload',this)">Upload</div>
+  <div class="ni" onclick="nav('baseline',this)">Baseline forecast</div>
+  <div class="ni" onclick="nav('intel',this)">Competitive intel</div>
+  <div class="ni" onclick="nav('capacity',this)">Demand &amp; capacity</div>
+  <div class="ni" onclick="nav('decisions',this)">Decision tools</div>
+  <div class="ni" onclick="nav('history',this)">History</div>
   <div class="ns" style="margin-top:14px">Periods loaded</div>
   <div class="period-stack" id="period-stack">
     <div class="ps-item"><span class="ps-dot"></span>P60 baseline</div>
@@ -173,8 +172,7 @@ tr:last-child td{border-bottom:none}
   <div id="view-upload" class="view active">
     <div class="vh"><div class="vt">Upload period file</div><div class="vs">Drop simulation_out.xlsm — everything extracts automatically</div></div>
     <div class="uz" id="drop-z" ondragover="e=>{e.preventDefault();document.getElementById('drop-z').classList.add('drag')}" ondragleave="document.getElementById('drop-z').classList.remove('drag')" ondrop="e=>{e.preventDefault();document.getElementById('drop-z').classList.remove('drag');handleFile(e.dataTransfer.files[0])}" onclick="document.getElementById('file-in').click()">
-      <div class="uz-icon">📊</div>
-      <h3>Drop simulation_out.xlsm here</h3>
+            <h3>Drop simulation_out.xlsm here</h3>
       <p>Prices · Quality · Green · Marketing · Shares · Capacity · Inventory<br>All extracted automatically. Each upload adds one period.</p>
     </div>
     <div id="upload-status" style="display:none" class="us"></div>
@@ -224,31 +222,29 @@ tr:last-child td{border-bottom:none}
 </div>
 
 <script>
-// Yields to the browser for one frame — prevents XLSX.read() from freezing the UI
-function yieldFrame(){return new Promise(r=>setTimeout(r,0));}
-
 // ── PARENT PAGE BRIDGE ────────────────────────────────────────────────────
 // When embedded in index.html, the parent sends the raw xlsx ArrayBuffer
 // via postMessage so no manual upload is needed.
-window.addEventListener('message', async e => {
+window.addEventListener('message', e => {
   if (!e.data || e.data.type !== 'SIM_WORKBOOK') return;
-  if (e.data.cmPerUnit) window._cmPerUnit = e.data.cmPerUnit;
   try {
     const buf = e.data.buffer;
     if (!buf) return;
     const st = document.getElementById('upload-status');
-    if (st) { st.style.display = 'block'; st.className = 'us ld'; st.textContent = '⟳ Parsing simulation data…'; }
-    await yieldFrame();
+    if (st) { st.style.display = 'block'; st.className = 'us ld'; st.textContent = 'Loading from website data…'; }
     const wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
-    const sn = findLastPop(wb);
-    if (!sn) { if (st) { st.className = 'us err'; st.textContent = 'No populated period found in file.'; } return; }
-    const pd = parseSheet(wb, sn);
-    const ex = periods.findIndex(p => p.period === pd.period);
-    if (ex > -1) periods[ex] = pd; else { periods.push(pd); periods.sort((a, b) => a.period - b.period); }
+    const newPds = parseAllSheets(wb);
+    if (!newPds.length) { if (st) { st.className = 'us err'; st.textContent = 'No populated period found in file.'; } return; }
+    newPds.forEach(pd => {
+      const ex = periods.findIndex(p => p.period === pd.period);
+      if (ex > -1) periods[ex] = pd; else periods.push(pd);
+    });
+    periods.sort((a,b) => a.period - b.period);
+    const pd = periods[periods.length - 1];
     if (st) {
       st.className = 'us ok';
       const avgQ = ([2,3,4,5].reduce((s,co) => s + pd.quality.P1[`co${co}`], 0) / 4).toFixed(3);
-      st.innerHTML = `✅ Auto-loaded P${pd.period} from website data — Co1 P1 share ${(pd.shares.P1.co1 * 100).toFixed(1)}% · Quality ${pd.quality.P1.co1.toFixed(3)} vs comp avg ${avgQ}`;
+      st.innerHTML = `✅ Auto-loaded P${pd.period} from website data (${newPds.length} periods) — Co1 P1 share ${(pd.shares.P1.co1 * 100).toFixed(1)}% · Quality ${pd.quality.P1.co1.toFixed(3)} vs comp avg ${avgQ}`;
     }
     renderSidebar(); renderAll();
     // Hide upload zone if it's visible and navigate to baseline
@@ -267,19 +263,19 @@ window.addEventListener('message', async e => {
     const resp = await fetch(url);
     if (!resp.ok) return; // will rely on postMessage from parent instead
     const buf = await resp.arrayBuffer();
-    const st = document.getElementById('upload-status');
-    if (st) { st.style.display = 'block'; st.className = 'us ld'; st.textContent = '⟳ Parsing simulation data…'; }
-    await yieldFrame();
     const wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
-    const sn = findLastPop(wb);
-    if (!sn) return;
-    const pd = parseSheet(wb, sn);
-    const ex = periods.findIndex(p => p.period === pd.period);
-    if (ex > -1) periods[ex] = pd; else { periods.push(pd); periods.sort((a, b) => a.period - b.period); }
+    const newPds = parseAllSheets(wb);
+    if (!newPds.length) return;
+    newPds.forEach(pd => {
+      const ex = periods.findIndex(p => p.period === pd.period);
+      if (ex > -1) periods[ex] = pd; else periods.push(pd);
+    });
+    periods.sort((a,b) => a.period - b.period);
+    const pd = periods[periods.length - 1];
     const st = document.getElementById('upload-status');
     if (st) {
       st.style.display = 'block'; st.className = 'us ok';
-      st.innerHTML = `✅ Auto-loaded P${pd.period} from server`;
+      st.innerHTML = `✅ Auto-loaded P${pd.period} from server (${newPds.length} periods)`;
     }
     renderSidebar(); renderAll();
     const uz = document.getElementById('drop-z');
@@ -463,6 +459,16 @@ function findLastPop(wb){
   return null;
 }
 
+// Parse every populated period sheet in the workbook (not just the last one)
+function parseAllSheets(wb){
+  const sheets=wb.SheetNames
+    .filter(s=>/^P\d+$/.test(s))
+    .sort((a,b)=>parseInt(a.slice(1))-parseInt(b.slice(1)));
+  return sheets
+    .map(sn=>{const ws=wb.Sheets[sn];return cellV(ws,12,1)>0?parseSheet(wb,sn):null;})
+    .filter(Boolean);
+}
+
 function parseSheet(wb,sn){
   const ws=wb.Sheets[sn];const pNum=parseInt(sn.slice(1));
   const r={period:pNum,prices:{P1:{},P2:{}},quality:{P1:{},P2:{}},shares:{P1:{},P2:{}},mktTotalP1:{},mktCo1P1:{},greenCo1:{},greenAvg:{},capacity:{},inventory:{},prodBudget:{},construction:{}};
@@ -493,13 +499,17 @@ function handleFile(file){
   reader.onload=e=>{
     try{
       const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
-      const sn=findLastPop(wb);if(!sn){st.className='us err';st.textContent='No populated period found.';return;}
-      const pd=parseSheet(wb,sn);
-      const ex=periods.findIndex(p=>p.period===pd.period);
-      if(ex>-1)periods[ex]=pd;else{periods.push(pd);periods.sort((a,b)=>a.period-b.period);}
+      const newPds=parseAllSheets(wb);
+      if(!newPds.length){st.className='us err';st.textContent='No populated period found.';return;}
+      newPds.forEach(pd=>{
+        const ex=periods.findIndex(p=>p.period===pd.period);
+        if(ex>-1)periods[ex]=pd;else periods.push(pd);
+      });
+      periods.sort((a,b)=>a.period-b.period);
+      const pd=periods[periods.length-1];
       st.className='us ok';
       const avgQ=([2,3,4,5].reduce((s,co)=>s+pd.quality.P1[`co${co}`],0)/4).toFixed(3);
-      st.innerHTML=`✅ Loaded P${pd.period} — Co1 P1 share ${(pd.shares.P1.co1*100).toFixed(1)}% · Quality ${pd.quality.P1.co1.toFixed(3)} vs comp avg ${avgQ} · Green ${pd.greenCo1.P1.toFixed(4)}`;
+      st.innerHTML=`✅ Loaded P${pd.period} (${newPds.length} periods) — Co1 P1 share ${(pd.shares.P1.co1*100).toFixed(1)}% · Quality ${pd.quality.P1.co1.toFixed(3)} vs comp avg ${avgQ} · Green ${pd.greenCo1.P1.toFixed(4)}`;
       renderSidebar();renderAll();
       setTimeout(()=>nav('baseline'),600);
     }catch(err){st.className='us err';st.textContent=`Error: ${err.message}`;console.error(err);}
@@ -610,48 +620,116 @@ function renderBaseline(pd,forecast,capPlan){
 function renderIntel(pd){
   const el=document.getElementById('intel-body');
   const prev=getPrev(pd);
-  const sigs=[];
 
-  [2,3,4,5].forEach(co=>{
-    MKTS.forEach(mkt=>{
-      const old=prev.prices.P1[`co${co}`]?.[mkt],nw=pd.prices.P1[`co${co}`]?.[mkt];
-      if(!old||!nw||old===0)return;
-      const d=(nw-old)/old;
-      if(d<-0.07) sigs.push({t:'w',msg:`Co${co} cut P1 price in ${FLAGS[mkt]} ${mkt} by ${Math.abs(d*100).toFixed(0)}% → ${nw.toFixed(0)}`});
-      if(d>0.07)  sigs.push({t:'g',msg:`Co${co} raised P1 price in ${FLAGS[mkt]} ${mkt} by ${(d*100).toFixed(0)}% — relative position improves if you hold`});
+  const noSig=`<div style="font-size:11px;color:var(--tx3);padding:4px 0">No significant movement this period.</div>`;
+  function sigList(sigs){
+    if(!sigs.length) return noSig;
+    return sigs.map(s=>`<div class="sig ${s.t}" style="margin-bottom:5px;padding:7px 10px;font-size:11px"><span style="flex-shrink:0;font-weight:700;font-family:'DM Mono',monospace">${s.t==='w'?'⚠':s.t==='r'?'✕':s.t==='g'?'↑':'–'}</span><span>${s.msg}</span></div>`).join('');
+  }
+  function sh(label){
+    return`<div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--tx3);font-family:'DM Mono',monospace;margin:14px 0 7px;padding-bottom:4px;border-bottom:0.5px solid var(--bd)">${label}</div>`;
+  }
+
+  // PRICE
+  const priceSigs={P1:[],P2:[]};
+  ['P1','P2'].forEach(prod=>{
+    [2,3,4,5].forEach(co=>{
+      MKTS.forEach(mkt=>{
+        const old=prev.prices[prod]?.[`co${co}`]?.[mkt],nw=pd.prices[prod]?.[`co${co}`]?.[mkt];
+        if(!old||!nw||old===0)return;
+        const d=(nw-old)/old;
+        if(d<-0.07) priceSigs[prod].push({t:'w',msg:`Co${co} cut price in ${FLAGS[mkt]} ${mkt} by ${Math.abs(d*100).toFixed(0)}% → ${nw.toFixed(0)}`});
+        if(d>0.07)  priceSigs[prod].push({t:'g',msg:`Co${co} raised price in ${FLAGS[mkt]} ${mkt} by ${(d*100).toFixed(0)}% — our relative position improves`});
+      });
     });
-    const dq=pd.quality.P1[`co${co}`]-prev.quality.P1[`co${co}`];
-    if(dq>0.03) sigs.push({t:'w',msg:`Co${co} quality up ${dq.toFixed(3)} — accelerating R&D. Now at ${pd.quality.P1[`co${co}`].toFixed(3)}`});
   });
-  const avgCompQ=[2,3,4,5].reduce((s,co)=>s+pd.quality.P1[`co${co}`],0)/4;
-  if(pd.quality.P1.co1<avgCompQ-0.03) sigs.push({t:'r',msg:`Your quality (${pd.quality.P1.co1.toFixed(3)}) below competitor avg (${avgCompQ.toFixed(3)}) — lagged share loss compounds each period`});
-  if(pd.quality.P1.co1>avgCompQ+0.05) sigs.push({t:'g',msg:`Quality advantage +${(pd.quality.P1.co1-avgCompQ).toFixed(3)} above avg — sustain R&D investment`});
-  const prevRG=prev.greenCo1.P1/(prev.greenAvg.P1||0.6593);
-  const currRG=pd.greenCo1.P1/(pd.greenAvg.P1||0.6593);
-  if(currRG<prevRG-0.03) sigs.push({t:'r',msg:`Green position fell ${(prevRG-currRG).toFixed(3)} — competitors outpacing. Lagged impact hits next period.`});
-  if(currRG>prevRG+0.02) sigs.push({t:'g',msg:`Green position improved to ${currRG.toFixed(3)} — advantage feeds into next period's share`});
-  if(sigs.length===0) sigs.push({t:'i',msg:'No significant competitor movements this period.'});
 
-  let html=`<div style="margin-bottom:14px">${sigs.map(s=>`<div class="sig ${s.t}"><span style="flex-shrink:0">${s.t==='w'?'⚠️':s.t==='g'?'✅':s.t==='r'?'🔴':'ℹ️'}</span><span>${s.msg}</span></div>`).join('')}</div>`;
+  // QUALITY
+  const qualSigs={P1:[],P2:[]};
+  const avgCompQ1=[2,3,4,5].reduce((s,co)=>s+pd.quality.P1[`co${co}`],0)/4;
+  const avgCompQ2=[2,3,4,5].reduce((s,co)=>s+pd.quality.P2[`co${co}`],0)/4;
+  ['P1','P2'].forEach(prod=>{
+    const avgCQ=prod==='P1'?avgCompQ1:avgCompQ2;
+    [2,3,4,5].forEach(co=>{
+      const dq=(pd.quality[prod]?.[`co${co}`]||0)-(prev.quality[prod]?.[`co${co}`]||0);
+      if(dq>0.03) qualSigs[prod].push({t:'w',msg:`Co${co} quality up ${dq.toFixed(3)} — now at ${pd.quality[prod][`co${co}`].toFixed(3)}`});
+    });
+    const ourQ=pd.quality[prod].co1;
+    if(ourQ<avgCQ-0.03) qualSigs[prod].push({t:'r',msg:`Our quality (${ourQ.toFixed(3)}) below comp avg (${avgCQ.toFixed(3)}) — lagged share loss compounds`});
+    if(ourQ>avgCQ+0.05) qualSigs[prod].push({t:'g',msg:`Quality advantage +${(ourQ-avgCQ).toFixed(3)} above avg — sustain R&D investment`});
+  });
 
-  html+=`<div class="g2">
-    <div class="card"><div class="ct">Relative price positioning — P1</div>
-    <table><thead><tr><th>Market</th>${[1,2,3,4,5].map(co=>`<th class="r">Co${co}${co===1?' ★':''}</th>`).join('')}</tr></thead><tbody>`;
+  // GREEN
+  const greenSigs={P1:[],P2:[]};
+  const currRG1=pd.greenCo1.P1/(pd.greenAvg.P1||0.6593);
+  const currRG2=pd.greenCo1.P2/(pd.greenAvg.P2||0.6042);
+  ['P1','P2'].forEach(prod=>{
+    const prevRG=prev.greenCo1[prod]/(prev.greenAvg[prod]||(prod==='P1'?0.6593:0.6042));
+    const currRG=prod==='P1'?currRG1:currRG2;
+    if(currRG<prevRG-0.03) greenSigs[prod].push({t:'r',msg:`Green position fell ${(prevRG-currRG).toFixed(3)} to ${currRG.toFixed(3)}× — competitors outpacing, lagged share impact next period`});
+    else if(currRG>prevRG+0.02) greenSigs[prod].push({t:'g',msg:`Green position improved to ${currRG.toFixed(3)}× — feeds into next period's share`});
+    else greenSigs[prod].push({t:'i',msg:`Green position stable at ${currRG.toFixed(3)}×`});
+  });
+
+  // MARKETING
+  const mktSigs=[];
   MKTS.forEach(mkt=>{
-    const ps=Object.values(pd.prices.P1).map(c=>c[mkt]).filter(v=>v>0);
-    const avg=ps.reduce((a,b)=>a+b,0)/ps.length;
-    html+=`<tr><td>${FLAGS[mkt]} ${mkt}</td>${[1,2,3,4,5].map(co=>{const r=avg>0?pd.prices.P1[`co${co}`][mkt]/avg:1;return`<td class="r"><span class="${r>1.05?'dn':r<0.95?'up':'neu'}">${r.toFixed(3)}</span></td>`;}).join('')}</tr>`;
+    const tot=pd.mktTotalP1[mkt]||1,prevTot=prev.mktTotalP1[mkt]||1;
+    const our=pd.mktCo1P1[mkt]||0,prevOur=prev.mktCo1P1[mkt]||0;
+    const relNow=our/tot*5,relPrev=prevOur/prevTot*5,dRel=relNow-relPrev;
+    if(dRel<-0.15) mktSigs.push({t:'w',msg:`${FLAGS[mkt]} ${mkt}: relative spend fell ${dRel.toFixed(2)} to ${relNow.toFixed(2)}× — competitors increasing share of voice`});
+    else if(dRel>0.15) mktSigs.push({t:'g',msg:`${FLAGS[mkt]} ${mkt}: relative spend rose +${dRel.toFixed(2)} to ${relNow.toFixed(2)}×`});
   });
-  html+=`</tbody></table></div>
-    <div class="card"><div class="ct">Quality & green summary</div>
-    <table><thead><tr><th>Metric</th><th class="r">You</th><th class="r">Comp avg</th><th class="r">Best comp</th><th class="r">Position</th></tr></thead><tbody>
-    <tr><td>Quality P1</td><td class="r">${pd.quality.P1.co1.toFixed(3)}</td><td class="r">${avgCompQ.toFixed(3)}</td><td class="r">${Math.max(...[2,3,4,5].map(co=>pd.quality.P1[`co${co}`])).toFixed(3)}</td><td class="r"><span class="${pd.quality.P1.co1>avgCompQ?'up':'dn'}">${pd.quality.P1.co1>avgCompQ?'▲ above':'▼ below'}</span></td></tr>
-    <tr><td>Quality P2</td><td class="r">${pd.quality.P2.co1.toFixed(3)}</td><td class="r">${([2,3,4,5].reduce((s,co)=>s+pd.quality.P2[`co${co}`],0)/4).toFixed(3)}</td><td class="r">${Math.max(...[2,3,4,5].map(co=>pd.quality.P2[`co${co}`])).toFixed(3)}</td><td class="r"><span class="${pd.quality.P2.co1>([2,3,4,5].reduce((s,co)=>s+pd.quality.P2[`co${co}`],0)/4)?'up':'dn'}">${pd.quality.P2.co1>([2,3,4,5].reduce((s,co)=>s+pd.quality.P2[`co${co}`],0)/4)?'▲ above':'▼ below'}</span></td></tr>
-    <tr><td>Green P1 (rel)</td><td class="r">${pd.greenCo1.P1.toFixed(4)}</td><td class="r">${pd.greenAvg.P1.toFixed(4)}</td><td class="r">—</td><td class="r"><span class="${pd.greenCo1.P1>pd.greenAvg.P1?'up':'dn'}">${(pd.greenCo1.P1/pd.greenAvg.P1).toFixed(3)}×</span></td></tr>
-    </tbody></table></div>
-  </div>`;
-  el.innerHTML=html;
+
+  // PRICE TABLES
+  function priceTable(prod){
+    let t=`<div class="card" style="margin-bottom:0"><div class="ct">Relative price positioning — ${prod}</div><table><thead><tr><th>Market</th>${[1,2,3,4,5].map(co=>`<th class="r">Co${co}${co===1?' ★':''}</th>`).join('')}</tr></thead><tbody>`;
+    MKTS.forEach(mkt=>{
+      const ps=Object.values(pd.prices[prod]).map(c=>c[mkt]).filter(v=>v>0);
+      const avg=ps.reduce((a,b)=>a+b,0)/ps.length;
+      t+=`<tr><td>${FLAGS[mkt]} ${mkt}</td>${[1,2,3,4,5].map(co=>{const r=avg>0?pd.prices[prod][`co${co}`][mkt]/avg:1;return`<td class="r"><span class="${r>1.05?'dn':r<0.95?'up':'neu'}">${r.toFixed(3)}</span></td>`;}).join('')}</tr>`;
+    });
+    return t+`</tbody></table></div>`;
+  }
+
+  // TAB SWITCHER
+  function switchIt(id,btn){
+    el.querySelectorAll('.it-panel').forEach(p=>p.style.display='none');
+    el.querySelectorAll('.it-btn').forEach(b=>b.classList.remove('active'));
+    el.querySelector('#'+id).style.display='block';
+    btn.classList.add('active');
+  }
+
+  el.innerHTML=`
+    <div class="tool-tabs">
+      <button class="tt it-btn active" onclick="(function(id,btn){document.getElementById('intel-body').querySelectorAll('.it-panel').forEach(p=>p.style.display='none');document.getElementById('intel-body').querySelectorAll('.it-btn').forEach(b=>b.classList.remove('active'));document.getElementById('intel-body').querySelector('#'+id).style.display='block';btn.classList.add('active')})('it-signals',this)">Signals</button>
+      <button class="tt it-btn" onclick="(function(id,btn){document.getElementById('intel-body').querySelectorAll('.it-panel').forEach(p=>p.style.display='none');document.getElementById('intel-body').querySelectorAll('.it-btn').forEach(b=>b.classList.remove('active'));document.getElementById('intel-body').querySelector('#'+id).style.display='block';btn.classList.add('active')})('it-pricing',this)">Pricing</button>
+      <button class="tt it-btn" onclick="(function(id,btn){document.getElementById('intel-body').querySelectorAll('.it-panel').forEach(p=>p.style.display='none');document.getElementById('intel-body').querySelectorAll('.it-btn').forEach(b=>b.classList.remove('active'));document.getElementById('intel-body').querySelector('#'+id).style.display='block';btn.classList.add('active')})('it-qualgreen',this)">Quality & Green</button>
+    </div>
+    <div id="it-signals" class="it-panel">
+      ${sh('Price — P1')}${sigList(priceSigs.P1)}
+      ${sh('Price — P2')}${sigList(priceSigs.P2)}
+      ${sh('Quality — P1')}${sigList(qualSigs.P1)}
+      ${sh('Quality — P2')}${sigList(qualSigs.P2)}
+      ${sh('Green — P1')}${sigList(greenSigs.P1)}
+      ${sh('Green — P2')}${sigList(greenSigs.P2)}
+      ${sh('Marketing — P1')}${mktSigs.length?sigList(mktSigs):noSig}
+    </div>
+    <div id="it-pricing" class="it-panel" style="display:none">
+      <div class="g2">${priceTable('P1')}${priceTable('P2')}</div>
+    </div>
+    <div id="it-qualgreen" class="it-panel" style="display:none">
+      <div class="card"><div class="ct">Quality & green summary</div>
+      <table><thead><tr><th>Metric</th><th class="r">You</th><th class="r">Comp avg</th><th class="r">Best comp</th><th class="r">Position</th></tr></thead><tbody>
+      <tr><td>Quality P1</td><td class="r">${pd.quality.P1.co1.toFixed(3)}</td><td class="r">${avgCompQ1.toFixed(3)}</td><td class="r">${Math.max(...[2,3,4,5].map(co=>pd.quality.P1[`co${co}`])).toFixed(3)}</td><td class="r"><span class="${pd.quality.P1.co1>avgCompQ1?'up':'dn'}">${pd.quality.P1.co1>avgCompQ1?'▲ above':'▼ below'}</span></td></tr>
+      <tr><td>Quality P2</td><td class="r">${pd.quality.P2.co1.toFixed(3)}</td><td class="r">${avgCompQ2.toFixed(3)}</td><td class="r">${Math.max(...[2,3,4,5].map(co=>pd.quality.P2[`co${co}`])).toFixed(3)}</td><td class="r"><span class="${pd.quality.P2.co1>avgCompQ2?'up':'dn'}">${pd.quality.P2.co1>avgCompQ2?'▲ above':'▼ below'}</span></td></tr>
+      <tr><td>Green P1 (rel)</td><td class="r">${pd.greenCo1.P1.toFixed(4)}</td><td class="r">${pd.greenAvg.P1.toFixed(4)}</td><td class="r">—</td><td class="r"><span class="${pd.greenCo1.P1>pd.greenAvg.P1?'up':'dn'}">${currRG1.toFixed(3)}×</span></td></tr>
+      <tr><td>Green P2 (rel)</td><td class="r">${pd.greenCo1.P2.toFixed(4)}</td><td class="r">${pd.greenAvg.P2.toFixed(4)}</td><td class="r">—</td><td class="r"><span class="${pd.greenCo1.P2>pd.greenAvg.P2?'up':'dn'}">${currRG2.toFixed(3)}×</span></td></tr>
+      </tbody></table></div>
+    </div>`;
 }
+
+
 
 // ── CAPACITY ───────────────────────────────────────────────────────────────
 function renderCapacity(pd,forecast,capPlan){
@@ -1035,79 +1113,101 @@ function runEVA(rv,nextP){
 function runMktAlloc(pd,rv,nextP){
   const prod=document.getElementById('ma-prod')?.value||'P1';
   const budget=parseFloat(document.getElementById('ma-budget')?.value)||4000;
-
-  // CM/unit per market from parent page (last-5-period avg). Normalize to index (1.0 = avg market).
-  const cmRaw=window._cmPerUnit||{};
-  const cmVals=MKTS.map(m=>cmRaw[m]||0).filter(v=>v>0);
-  const cmAvg=cmVals.length?cmVals.reduce((s,v)=>s+v,0)/cmVals.length:1;
-  const cmHasCoverage=cmVals.length>=3; // need enough markets to be meaningful
-
   const results=MKTS.map(mkt=>{
     const c=COEFS[`${prod}_${mkt}`];if(!c)return null;
     const v=rv[prod][mkt];
     const bTotal=(c.relMarketing||0)+(c.lagRelMarketing||0);
     const totMktUSD=(pd.mktTotalP1[mkt]||1)/FX[mkt]/1000;
     const sharePerK=bTotal*(5/totMktUSD)/1000;
-    const unitsPerK=sharePerK*v.mktSize;
-    // CM index: how this market's CM/unit compares to the average across markets
-    const cmPU=cmRaw[mkt]||0;
-    const cmIdx=cmAvg>0&&cmHasCoverage?cmPU/cmAvg:1;
-    // Score = CM per $1K: units gained × CM/unit (normalized so ranking is meaningful)
-    const score=cmHasCoverage?unitsPerK*cmIdx:unitsPerK;
-    return{mkt,bTotal,totMktUSD,unitsPerK,cmPU,cmIdx,score};
-  }).filter(Boolean).sort((a,b)=>b.score-a.score);
-
-  const totalScore=results.reduce((s,r)=>s+r.score,0);
+    return{mkt,bTotal,totMktUSD,sharePerK,unitsPerK:sharePerK*v.mktSize};
+  }).filter(Boolean).sort((a,b)=>b.unitsPerK-a.unitsPerK);
+  const totalU=results.reduce((s,r)=>s+r.unitsPerK,0);
   const rows=results.map((r,i)=>{
-    const alloc=budget*r.score/totalScore;
-    const pct=r.score/totalScore;
-    const cmCell=cmHasCoverage
-      ?`<td class="r">${r.cmPU>0?'$'+fmt(r.cmPU,0):'—'}</td><td class="r"><span class="${r.cmIdx>=1.1?'up':r.cmIdx<=0.75?'dn':'neu'}">${r.cmIdx.toFixed(2)}×</span></td>`
-      :'';
-    return`<tr ${i===0?'style="background:var(--sur2)"':''}><td>${FLAGS[r.mkt]} ${r.mkt}</td><td class="r">${fmt(r.bTotal,4)}</td><td class="r">$${fmt(r.totMktUSD,0)}K</td><td class="r">${fmt(r.unitsPerK,1)}</td>${cmCell}<td class="r">${fmtPct(pct)}</td><td class="r"><strong>$${fmt(alloc,0)}K</strong></td></tr>`;
+    const alloc=budget*r.unitsPerK/totalU;
+    const pct=r.unitsPerK/totalU;
+    return`<tr ${i===0?'style="background:var(--sur2)"':''}><td>${FLAGS[r.mkt]} ${r.mkt}</td><td class="r">${fmt(r.bTotal,4)}</td><td class="r">$${fmt(r.totMktUSD,0)}K</td><td class="r">${fmt(r.unitsPerK,1)}</td><td class="r">${fmtPct(pct)}</td><td class="r"><strong>$${fmt(alloc,0)}K</strong></td></tr>`;
   }).join('');
-
-  const cmHeader=cmHasCoverage
-    ?`<th class="r">CM/unit</th><th class="r">CM index</th>`
-    :'';
-  const cmNote=cmHasCoverage
-    ?`<div class="memo-body" style="margin-top:6px">Ranked by <strong>CM per $1K of spend</strong> (units/$1K × CM index). CM index = this market's CM/unit ÷ average across markets, sourced from the last 5 periods of financial data. Markets with below-average CM/unit (index &lt; 1.0) are discounted relative to a pure units-efficiency ranking.</div>`
-    :`<div class="memo-body" style="margin-top:6px">CM data not yet available — ranked by units per $1K. Reload the dashboard after financial data loads to enable CM-weighted ranking.</div>`;
-
   showMemo('memo-mktalloc',mHead(`Marketing Budget Allocation — $${budget.toLocaleString()}K USD`,nextP-1,prod,'All markets')+`
-    <table><thead><tr><th>Market</th><th class="r">Coef (curr+lag)</th><th class="r">Total mkt ($K USD)</th><th class="r">Units/$1K</th>${cmHeader}<th class="r">Alloc %</th><th class="r">$ Allocation</th></tr></thead><tbody>${rows}</tbody></table>
-    <div class="memo-st">Methodology</div>
-    ${cmNote}
-    <div class="memo-body" style="margin-top:4px">Cross-check against your shipping priority order — spending heavily in a market where you have limited shipping allocation drives demand you cannot fulfil.</div>`);
+    <table><thead><tr><th>Market</th><th class="r">Coef (curr+lag)</th><th class="r">Total mkt ($K USD)</th><th class="r">Units/$1K</th><th class="r">Alloc %</th><th class="r">$ Allocation</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="memo-st">Note</div>
+    <div class="memo-body">Ranked purely by units gained per dollar. Cross-check against your shipping priority order — spending heavily in a market where you have limited shipping allocation drives demand you cannot fulfil.</div>`);
 }
 
 // ── HISTORY ────────────────────────────────────────────────────────────────
 function renderHistory(){
   if(periods.length<1)return;
-  const all=[P60,...periods];const labels=all.map(p=>`P${p.period}`);
+  // Only show P60 onward — filter out any earlier sheets in the workbook
+  const fromP60=periods.filter(p=>p.period>=60);
+  const hasP60=fromP60.some(p=>p.period===60);
+  const all=hasP60?fromP60:[P60,...fromP60];
+  const labels=all.map(p=>`P${p.period}`);
   const s1=all.map(p=>+(p.shares.P1.co1*100).toFixed(1));
   const s2=all.map(p=>+(p.shares.P2.co1*100).toFixed(1));
-  const q1=all.map(p=>+p.quality.P1.co1.toFixed(3));
-  const qc=all.map(p=>+([2,3,4,5].reduce((s,co)=>s+p.quality.P1[`co${co}`],0)/4).toFixed(3));
-  const rg=all.map(p=>+(p.greenCo1.P1/(p.greenAvg.P1||0.6593)).toFixed(3));
+  const q1you=all.map(p=>+p.quality.P1.co1.toFixed(3));
+  const q1avg=all.map(p=>+([2,3,4,5].reduce((s,co)=>s+p.quality.P1[`co${co}`],0)/4).toFixed(3));
+  const q2you=all.map(p=>+p.quality.P2.co1.toFixed(3));
+  const q2avg=all.map(p=>+([2,3,4,5].reduce((s,co)=>s+p.quality.P2[`co${co}`],0)/4).toFixed(3));
+  const rg1=all.map(p=>+(p.greenCo1.P1/(p.greenAvg.P1||0.6593)).toFixed(3));
+  const rg2=all.map(p=>+(p.greenCo1.P2/(p.greenAvg.P2||0.6042)).toFixed(3));
   const inv1=all.map(p=>p.inventory?.P1||0);
   const inv2=all.map(p=>p.inventory?.P2||0);
+  const parity=labels.map(()=>1.0);
+
   document.getElementById('hist-body').innerHTML=`
     <div class="g2">
-      <div class="card"><div class="ct">Market share — P1 & P2</div><div class="cw" style="height:180px"><canvas id="hc1" role="img" aria-label="Market share trend">Market share trend.</canvas></div></div>
-      <div class="card"><div class="ct">Quality — you vs competitor avg</div><div class="cw" style="height:180px"><canvas id="hc2" role="img" aria-label="Quality trend">Quality trend.</canvas></div></div>
+      <div class="card"><div class="ct">Market share — P1 & P2</div><div class="cw" style="height:170px"><canvas id="hc1"></canvas></div></div>
+      <div class="card"><div class="ct">Inventory buffer</div><div class="cw" style="height:170px"><canvas id="hc6"></canvas></div></div>
     </div>
     <div class="g2">
-      <div class="card"><div class="ct">Relative green (>1.0 = above avg)</div><div class="cw" style="height:160px"><canvas id="hc3" role="img" aria-label="Green position">Green position.</canvas></div></div>
-      <div class="card"><div class="ct">Inventory buffer</div><div class="cw" style="height:160px"><canvas id="hc4" role="img" aria-label="Inventory">Inventory trend.</canvas></div></div>
+      <div class="card"><div class="ct">Quality P1 — you vs comp avg</div><div class="cw" style="height:160px"><canvas id="hc2"></canvas></div></div>
+      <div class="card"><div class="ct">Quality P2 — you vs comp avg</div><div class="cw" style="height:160px"><canvas id="hc3"></canvas></div></div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="ct">Green P1 — relative position (&gt;1.0 = above avg)</div><div class="cw" style="height:160px"><canvas id="hc4"></canvas></div></div>
+      <div class="card"><div class="ct">Green P2 — relative position (&gt;1.0 = above avg)</div><div class="cw" style="height:160px"><canvas id="hc5"></canvas></div></div>
     </div>`;
+
   const co={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10},color:'#5e5c57'},grid:{color:'rgba(255,255,255,0.05)'}},y:{ticks:{font:{size:10},color:'#5e5c57'},grid:{color:'rgba(255,255,255,0.05)'}}}};
   const leg={display:true,position:'top',labels:{font:{size:10},boxWidth:8,padding:8,color:'#9e9b94'}};
+  const qScale={...co.scales,y:{...co.scales.y,min:0.8,ticks:{...co.scales.y.ticks,callback:v=>v.toFixed(2)}}};
+  const gScale={...co.scales,y:{...co.scales.y,ticks:{...co.scales.y.ticks,callback:v=>v.toFixed(2)}}};
+
   setTimeout(()=>{
-    new Chart(document.getElementById('hc1'),{type:'line',data:{labels,datasets:[{label:'P1',data:s1,borderColor:'#378ADD',pointRadius:4,borderWidth:2,tension:0.3,backgroundColor:'rgba(55,138,221,0.08)'},{label:'P2',data:s2,borderColor:'#639922',pointRadius:4,borderWidth:1.5,tension:0.3,backgroundColor:'transparent',borderDash:[4,2]}]},options:{...co,plugins:{legend:leg},scales:{...co.scales,y:{...co.scales.y,ticks:{...co.scales.y.ticks,callback:v=>v+'%'}}}}});
-    new Chart(document.getElementById('hc2'),{type:'line',data:{labels,datasets:[{label:'You',data:q1,borderColor:'#378ADD',pointRadius:4,borderWidth:2,tension:0.3,backgroundColor:'transparent'},{label:'Comp avg',data:qc,borderColor:'#888780',pointRadius:3,borderWidth:1.5,tension:0.3,backgroundColor:'transparent',borderDash:[4,2]}]},options:{...co,plugins:{legend:leg},scales:{...co.scales,y:{...co.scales.y,min:0.8,ticks:{...co.scales.y.ticks,callback:v=>v.toFixed(2)}}}}});
-    new Chart(document.getElementById('hc3'),{type:'line',data:{labels,datasets:[{label:'Rel green',data:rg,borderColor:'#639922',pointRadius:4,borderWidth:2,tension:0.3,backgroundColor:'rgba(99,153,34,0.08)'},{label:'Parity',data:labels.map(()=>1.0),borderColor:'rgba(94,92,87,0.35)',pointRadius:0,borderWidth:1,borderDash:[3,3]}]},options:{...co,plugins:{legend:{display:false}},scales:{...co.scales,y:{...co.scales.y,ticks:{...co.scales.y.ticks,callback:v=>v.toFixed(2)}}}}});
-    new Chart(document.getElementById('hc4'),{type:'line',data:{labels,datasets:[{label:'P1',data:inv1,borderColor:'#378ADD',pointRadius:4,borderWidth:2,tension:0.3,backgroundColor:'transparent'},{label:'P2',data:inv2,borderColor:'#639922',pointRadius:4,borderWidth:1.5,tension:0.3,backgroundColor:'transparent',borderDash:[4,2]}]},options:{...co,plugins:{legend:leg},scales:{...co.scales,y:{...co.scales.y,ticks:{...co.scales.y.ticks,callback:v=>(v/1000).toFixed(0)+'K'}}}}});
+    // Market share
+    new Chart(document.getElementById('hc1'),{type:'line',data:{labels,datasets:[
+      {label:'P1',data:s1,borderColor:'#378ADD',pointRadius:3,borderWidth:2,tension:0.3,backgroundColor:'rgba(55,138,221,0.08)'},
+      {label:'P2',data:s2,borderColor:'#639922',pointRadius:3,borderWidth:1.5,tension:0.3,backgroundColor:'transparent',borderDash:[4,2]}
+    ]},options:{...co,plugins:{legend:leg},scales:{...co.scales,y:{...co.scales.y,ticks:{...co.scales.y.ticks,callback:v=>v+'%'}}}}});
+
+    // Quality P1
+    new Chart(document.getElementById('hc2'),{type:'line',data:{labels,datasets:[
+      {label:'You',data:q1you,borderColor:'#378ADD',pointRadius:3,borderWidth:2,tension:0.3,backgroundColor:'transparent'},
+      {label:'Comp avg',data:q1avg,borderColor:'#888780',pointRadius:2,borderWidth:1.5,tension:0.3,backgroundColor:'transparent',borderDash:[4,2]}
+    ]},options:{...co,plugins:{legend:leg},scales:qScale}});
+
+    // Quality P2
+    new Chart(document.getElementById('hc3'),{type:'line',data:{labels,datasets:[
+      {label:'You',data:q2you,borderColor:'#378ADD',pointRadius:3,borderWidth:2,tension:0.3,backgroundColor:'transparent'},
+      {label:'Comp avg',data:q2avg,borderColor:'#888780',pointRadius:2,borderWidth:1.5,tension:0.3,backgroundColor:'transparent',borderDash:[4,2]}
+    ]},options:{...co,plugins:{legend:leg},scales:qScale}});
+
+    // Green P1
+    new Chart(document.getElementById('hc4'),{type:'line',data:{labels,datasets:[
+      {label:'Rel green P1',data:rg1,borderColor:'#639922',pointRadius:3,borderWidth:2,tension:0.3,backgroundColor:'rgba(99,153,34,0.08)'},
+      {label:'Parity',data:parity,borderColor:'rgba(94,92,87,0.35)',pointRadius:0,borderWidth:1,borderDash:[3,3]}
+    ]},options:{...co,plugins:{legend:{display:false}},scales:gScale}});
+
+    // Green P2
+    new Chart(document.getElementById('hc5'),{type:'line',data:{labels,datasets:[
+      {label:'Rel green P2',data:rg2,borderColor:'#639922',pointRadius:3,borderWidth:2,tension:0.3,backgroundColor:'rgba(99,153,34,0.08)'},
+      {label:'Parity',data:parity,borderColor:'rgba(94,92,87,0.35)',pointRadius:0,borderWidth:1,borderDash:[3,3]}
+    ]},options:{...co,plugins:{legend:{display:false}},scales:gScale}});
+
+    // Inventory
+    new Chart(document.getElementById('hc6'),{type:'line',data:{labels,datasets:[
+      {label:'P1',data:inv1,borderColor:'#378ADD',pointRadius:3,borderWidth:2,tension:0.3,backgroundColor:'transparent'},
+      {label:'P2',data:inv2,borderColor:'#639922',pointRadius:3,borderWidth:1.5,tension:0.3,backgroundColor:'transparent',borderDash:[4,2]}
+    ]},options:{...co,plugins:{legend:leg},scales:{...co.scales,y:{...co.scales.y,ticks:{...co.scales.y.ticks,callback:v=>(v/1000).toFixed(0)+'K'}}}}});
   },50);
 }
 

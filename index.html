@@ -427,18 +427,17 @@ input[type=range]{accent-color:var(--accent);width:100px;}
 
     </div>
 
-  </div>
-  </div><!-- /#content -->
+    <!-- COMMAND CENTER TAB PANE — must live inside #content for flex height to work -->
+    <div id="tab-cmdcenter" class="tab-pane" style="padding:0;overflow:hidden;">
+      <iframe
+        id="cc-frame"
+        src="sim_command_center.html"
+        style="width:100%;height:100%;border:none;display:block;"
+        title="Simulation Command Center"
+      ></iframe>
+    </div>
 
-  <!-- COMMAND CENTER TAB PANE -->
-  <div id="tab-cmdcenter" class="tab-pane" style="padding:0;overflow:hidden;">
-    <iframe
-      id="cc-frame"
-      src="sim_command_center.html"
-      style="width:100%;height:100%;border:none;display:block;"
-      title="Simulation Command Center"
-    ></iframe>
-  </div>
+  </div><!-- /#content -->
 
 </div>
 
@@ -640,10 +639,11 @@ function renderExecutive(){
   const totalOpEx =lastP.reduce((s,r)=>s+(r[6]+r[7]+r[8]),0);
   const cmEff     =totalOpEx?totalCM/totalOpEx:0;
 
-  // KPI 4-5: SUM(CM)/SUM(OpEx) across ALL selected periods (all products, selected countries)
-  const cfAllPeriods=cfData.filter(r=>selectedCountries.has(r[0])&&r[2]>=pMin&&r[2]<=pMax);
+  // KPI 4-5: SUM(CM)/SUM(OpEx) over last 5 periods (all products, selected countries)
+  const last5Min=Math.max(1,maxP-4);
+  const cfLast5=cfData.filter(r=>selectedCountries.has(r[0])&&r[2]>=last5Min&&r[2]<=maxP);
   const cmByC={},opexByC={};
-  cfAllPeriods.forEach(r=>{
+  cfLast5.forEach(r=>{
     cmByC[r[0]]=(cmByC[r[0]]||0)+r[3];
     opexByC[r[0]]=(opexByC[r[0]]||0)+(r[6]+r[7]+r[8]);
   });
@@ -654,8 +654,8 @@ function renderExecutive(){
     <div class="kpi-card"><div class="kpi-label">Total Contribution P${maxP}</div><div class="kpi-value">${fmtM(totalCM)}</div><div class="kpi-sub">all selected markets</div></div>
     <div class="kpi-card"><div class="kpi-label">Revenue P${maxP}</div><div class="kpi-value">${fmtM(totalRev)}</div><div class="kpi-sub">total sales</div></div>
     <div class="kpi-card"><div class="kpi-label">CM Efficiency P${maxP}</div><div class="kpi-value">${fmtX(cmEff)}</div><div class="kpi-sub">SUM(CM)/SUM(OpEx)</div></div>
-    <div class="kpi-card"><div class="kpi-label">Largest Consumer</div><div class="kpi-value" style="font-size:16px;">${bestCM?cLabel(bestCM[0]):'—'}</div><div class="kpi-sub">${bestCM?fmtM(bestCM[1]):''} CM</div></div>
-    <div class="kpi-card"><div class="kpi-label">Highest CM Efficiency</div><div class="kpi-value" style="font-size:16px;">${bestEff?cLabel(bestEff.c):'—'}</div><div class="kpi-sub">${bestEff?fmtX(bestEff.eff):''}</div></div>`;
+    <div class="kpi-card"><div class="kpi-label">Highest CM Market</div><div class="kpi-value" style="font-size:16px;">${bestCM?cLabel(bestCM[0]):'—'}</div><div class="kpi-sub">${bestCM?fmtM(bestCM[1]):''} CM &nbsp;·&nbsp; P${last5Min}–P${maxP} avg</div></div>
+    <div class="kpi-card"><div class="kpi-label">Highest CM Efficiency</div><div class="kpi-value" style="font-size:16px;">${bestEff?cLabel(bestEff.c):'—'}</div><div class="kpi-sub">${bestEff?fmtX(bestEff.eff):''} &nbsp;·&nbsp; P${last5Min}–P${maxP} avg</div></div>`;
 
   renderBubble(lastP);  // lastP already respects all active filters
   renderRanking(cf);

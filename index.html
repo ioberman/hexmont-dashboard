@@ -1741,8 +1741,9 @@ function renderActiveTab(){
     // Send pending buffer if iframe just became visible
     const frame=document.getElementById('cc-frame');
     if(frame && frame.contentWindow && window._pendingSimBuffer){
-      frame.contentWindow.postMessage({type:'SIM_WORKBOOK',buffer:window._pendingSimBuffer},'*');
+      frame.contentWindow.postMessage({type:'SIM_WORKBOOK',buffer:window._pendingSimBuffer,cmPerUnit:window._pendingCMData||null},'*');
       window._pendingSimBuffer=null;
+      window._pendingCMData=null;
     }
   }
 }
@@ -1753,8 +1754,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(frame){
     frame.addEventListener('load',()=>{
       if(window._pendingSimBuffer && frame.contentWindow){
-        frame.contentWindow.postMessage({type:'SIM_WORKBOOK',buffer:window._pendingSimBuffer},'*');
+        frame.contentWindow.postMessage({type:'SIM_WORKBOOK',buffer:window._pendingSimBuffer,cmPerUnit:window._pendingCMData||null},'*');
         window._pendingSimBuffer=null;
+        window._pendingCMData=null;
       }
     });
   }
@@ -1987,11 +1989,13 @@ async function fetchSimData(){
       console.log('✓ Simulation data refreshed — P1–P'+periods[periods.length-1]);
       // Forward raw workbook to Command Center iframe so it needs no upload
       const frame=document.getElementById('cc-frame');
+      const cmMsg=buildCMPerUnit();
       if(frame && frame.contentWindow){
-        frame.contentWindow.postMessage({type:'SIM_WORKBOOK',buffer:buf},'*');
+        frame.contentWindow.postMessage({type:'SIM_WORKBOOK',buffer:buf,cmPerUnit:cmMsg},'*');
       } else {
         // iframe not ready yet — store buffer and send when iframe loads
         window._pendingSimBuffer=buf;
+        window._pendingCMData=cmMsg;
       }
 
     }
@@ -2054,6 +2058,22 @@ async function fetchSheetData(){
   }
   setTimeout(()=>statusEl.remove(), 4000);
   renderActiveTab();
+}
+
+// Compute CM/unit per market averaged over last 5 periods — sent to Command Center for CM-weighted allocation ranking
+function buildCMPerUnit(){
+  const allP=cfData.filter(r=>r[4]>0).map(r=>r[2]);
+  if(!allP.length) return {};
+  const maxP=Math.max(...allP);
+  const last5Min=Math.max(1,maxP-4);
+  const cmSum={},unitSum={};
+  cfData.filter(r=>r[2]>=last5Min&&r[2]<=maxP&&r[4]>0).forEach(r=>{
+    cmSum[r[0]]=(cmSum[r[0]]||0)+r[3];
+    unitSum[r[0]]=(unitSum[r[0]]||0)+r[4];
+  });
+  const out={};
+  Object.keys(cmSum).forEach(c=>{out[c]=unitSum[c]>0?cmSum[c]/unitSum[c]:0;});
+  return out;
 }
 
 // ── INIT ──────────────────────────────────────────────────

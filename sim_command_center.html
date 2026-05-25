@@ -224,17 +224,21 @@ tr:last-child td{border-bottom:none}
 </div>
 
 <script>
+// Yields to the browser for one frame — prevents XLSX.read() from freezing the UI
+function yieldFrame(){return new Promise(r=>setTimeout(r,0));}
+
 // ── PARENT PAGE BRIDGE ────────────────────────────────────────────────────
 // When embedded in index.html, the parent sends the raw xlsx ArrayBuffer
 // via postMessage so no manual upload is needed.
-window.addEventListener('message', e => {
+window.addEventListener('message', async e => {
   if (!e.data || e.data.type !== 'SIM_WORKBOOK') return;
   if (e.data.cmPerUnit) window._cmPerUnit = e.data.cmPerUnit;
   try {
     const buf = e.data.buffer;
     if (!buf) return;
     const st = document.getElementById('upload-status');
-    if (st) { st.style.display = 'block'; st.className = 'us ld'; st.textContent = 'Loading from website data…'; }
+    if (st) { st.style.display = 'block'; st.className = 'us ld'; st.textContent = '⟳ Parsing simulation data…'; }
+    await yieldFrame();
     const wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
     const sn = findLastPop(wb);
     if (!sn) { if (st) { st.className = 'us err'; st.textContent = 'No populated period found in file.'; } return; }
@@ -263,6 +267,9 @@ window.addEventListener('message', e => {
     const resp = await fetch(url);
     if (!resp.ok) return; // will rely on postMessage from parent instead
     const buf = await resp.arrayBuffer();
+    const st = document.getElementById('upload-status');
+    if (st) { st.style.display = 'block'; st.className = 'us ld'; st.textContent = '⟳ Parsing simulation data…'; }
+    await yieldFrame();
     const wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
     const sn = findLastPop(wb);
     if (!sn) return;

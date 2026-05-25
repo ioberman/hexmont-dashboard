@@ -1965,12 +1965,21 @@ function extractCompData(wb){
   };
 }
 
+// Yields to the browser for one frame — prevents XLSX.read() from freezing the UI
+function yieldFrame(){return new Promise(r=>setTimeout(r,0));}
+
 async function fetchSimData(){
+  const simStatus=document.createElement('div');
+  simStatus.style.cssText='position:fixed;bottom:48px;right:16px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:7px 12px;font-size:11px;color:var(--muted);z-index:50;';
+  simStatus.textContent='⟳ Loading simulation data…';
+  document.body.appendChild(simStatus);
   try{
     const url='./simulation_out.xlsx?t='+Date.now();
     const resp=await fetch(url);
     if(!resp.ok) throw new Error(`HTTP ${resp.status} — file not found at ${url.split('?')[0]}`);
     const buf=await resp.arrayBuffer();
+    simStatus.textContent='⟳ Parsing simulation file…';
+    await yieldFrame();
     const wb=XLSX.read(buf,{type:'array'});
     const newSim=extractSimData(wb);
     const newComp=extractCompData(wb);
@@ -1997,13 +2006,18 @@ async function fetchSimData(){
         window._pendingSimBuffer=buf;
         window._pendingCMData=cmMsg;
       }
+      simStatus.style.color='#69a053';
+      simStatus.textContent='✓ Simulation data loaded';
 
     }
   } catch(e){
     window._simLoaded=false;
+    simStatus.style.color='#e86850';
+    simStatus.textContent='✗ Simulation load failed';
     console.warn('fetchSimData failed —', e.message);
     console.warn('Fix: ensure simulation_out.xlsx is in the same directory as index.html on the server.');
   }
+  setTimeout(()=>simStatus.remove(),4000);
 }
 
 
@@ -2020,6 +2034,8 @@ async function fetchSheetData(){
     const resp = await fetch(url);
     if(!resp.ok) throw new Error('File not found');
     const buf = await resp.arrayBuffer();
+    statusEl.textContent='⟳ Parsing data…';
+    await yieldFrame();
     const wb = XLSX.read(buf, {type:'array'});
     const cfS  = wb.Sheets['countryFinancials'];
     const invS = wb.Sheets['Inventory Comparison'];

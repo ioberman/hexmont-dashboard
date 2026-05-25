@@ -227,6 +227,7 @@ tr:last-child td{border-bottom:none}
 // via postMessage so no manual upload is needed.
 window.addEventListener('message', e => {
   if (!e.data || e.data.type !== 'SIM_WORKBOOK') return;
+  if (e.data.cmPerUnit) window._cmPerUnit = e.data.cmPerUnit;
   try {
     const buf = e.data.buffer;
     if (!buf) return;
@@ -1113,24 +1114,45 @@ function runEVA(rv,nextP){
 function runMktAlloc(pd,rv,nextP){
   const prod=document.getElementById('ma-prod')?.value||'P1';
   const budget=parseFloat(document.getElementById('ma-budget')?.value)||4000;
+
+  const cmRaw=window._cmPerUnit||{};
+  const cmVals=MKTS.map(m=>cmRaw[m]||0).filter(v=>v>0);
+  const cmAvg=cmVals.length?cmVals.reduce((s,v)=>s+v,0)/cmVals.length:1;
+  const cmHasCoverage=cmVals.length>=3;
+
   const results=MKTS.map(mkt=>{
     const c=COEFS[`${prod}_${mkt}`];if(!c)return null;
     const v=rv[prod][mkt];
     const bTotal=(c.relMarketing||0)+(c.lagRelMarketing||0);
     const totMktUSD=(pd.mktTotalP1[mkt]||1)/FX[mkt]/1000;
     const sharePerK=bTotal*(5/totMktUSD)/1000;
-    return{mkt,bTotal,totMktUSD,sharePerK,unitsPerK:sharePerK*v.mktSize};
-  }).filter(Boolean).sort((a,b)=>b.unitsPerK-a.unitsPerK);
-  const totalU=results.reduce((s,r)=>s+r.unitsPerK,0);
+    const unitsPerK=sharePerK*v.mktSize;
+    const cmPU=cmRaw[mkt]||0;
+    const cmIdx=cmAvg>0&&cmHasCoverage?cmPU/cmAvg:1;
+    const score=cmHasCoverage?unitsPerK*cmIdx:unitsPerK;
+    return{mkt,bTotal,totMktUSD,unitsPerK,cmPU,cmIdx,score};
+  }).filter(Boolean).sort((a,b)=>b.score-a.score);
+
+  const totalScore=results.reduce((s,r)=>s+r.score,0);
   const rows=results.map((r,i)=>{
-    const alloc=budget*r.unitsPerK/totalU;
-    const pct=r.unitsPerK/totalU;
-    return`<tr ${i===0?'style="background:var(--sur2)"':''}><td>${FLAGS[r.mkt]} ${r.mkt}</td><td class="r">${fmt(r.bTotal,4)}</td><td class="r">$${fmt(r.totMktUSD,0)}K</td><td class="r">${fmt(r.unitsPerK,1)}</td><td class="r">${fmtPct(pct)}</td><td class="r"><strong>$${fmt(alloc,0)}K</strong></td></tr>`;
+    const alloc=budget*r.score/totalScore;
+    const pct=r.score/totalScore;
+    const cmCell=cmHasCoverage
+      ?`<td class="r">${r.cmPU>0?'$'+fmt(r.cmPU,0):'—'}</td><td class="r"><span class="${r.cmIdx>=1.1?'up':r.cmIdx<=0.75?'dn':'neu'}">${r.cmIdx.toFixed(2)}×</span></td>`
+      :'';
+    return`<tr ${i===0?'style="background:var(--sur2)"':''}><td>${FLAGS[r.mkt]} ${r.mkt}</td><td class="r">${fmt(r.bTotal,4)}</td><td class="r">$${fmt(r.totMktUSD,0)}K</td><td class="r">${fmt(r.unitsPerK,1)}</td>${cmCell}<td class="r">${fmtPct(pct)}</td><td class="r"><strong>$${fmt(alloc,0)}K</strong></td></tr>`;
   }).join('');
+
+  const cmHeader=cmHasCoverage?`<th class="r">CM/unit</th><th class="r">CM index</th>`:'';
+  const cmNote=cmHasCoverage
+    ?`<div class="memo-body" style="margin-top:6px">Ranked by <strong>CM per $1K of spend</strong> (units/$1K × CM index). CM index = this market's CM/unit ÷ average across markets, sourced from the last 5 periods of financial data. Markets below 1.0 (e.g. Mexico) are discounted relative to a pure units-efficiency ranking.</div>`
+    :`<div class="memo-body" style="margin-top:6px">CM data not yet available — ranked by units per $1K. Reload after financial data loads to enable CM-weighted ranking.</div>`;
+
   showMemo('memo-mktalloc',mHead(`Marketing Budget Allocation — $${budget.toLocaleString()}K USD`,nextP-1,prod,'All markets')+`
-    <table><thead><tr><th>Market</th><th class="r">Coef (curr+lag)</th><th class="r">Total mkt ($K USD)</th><th class="r">Units/$1K</th><th class="r">Alloc %</th><th class="r">$ Allocation</th></tr></thead><tbody>${rows}</tbody></table>
-    <div class="memo-st">Note</div>
-    <div class="memo-body">Ranked purely by units gained per dollar. Cross-check against your shipping priority order — spending heavily in a market where you have limited shipping allocation drives demand you cannot fulfil.</div>`);
+    <table><thead><tr><th>Market</th><th class="r">Coef (curr+lag)</th><th class="r">Total mkt ($K USD)</th><th class="r">Units/$1K</th>${cmHeader}<th class="r">Alloc %</th><th class="r">$ Allocation</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="memo-st">Methodology</div>
+    ${cmNote}
+    <div class="memo-body" style="margin-top:4px">Cross-check against your shipping priority order — spending heavily in a market with limited shipping allocation drives demand you cannot fulfil.</div>`);
 }
 
 // ── HISTORY ────────────────────────────────────────────────────────────────

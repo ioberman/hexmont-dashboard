@@ -1245,6 +1245,8 @@ function renderCompetitive(){
     banner.remove();
   }
   const cd=COMP_DATA.comp;
+  // Use period-filtered SIM_PERIODS for charts that iterate over per-period data
+  const filteredPs=SIM_PERIODS.filter(p=>p>=pMin&&p<=pMax);
 
   // Revenue only has quarterly COMPETITORS data — detect actual length from non-null values
   const nQ=cd.revenue[0].filter(v=>v!=null).length||11;
@@ -1253,8 +1255,8 @@ function renderCompetitive(){
   const qs=Array.from({length:nQ},(_,i)=>'Q'+(i+1));
   const latestQ=nQ-1;
 
-  // Net income + equity: use full SIM_DATA pub rows (P1-P62) — much richer
-  const periods=SIM_PERIODS;
+  // Net income + equity: use period-filtered SIM_DATA pub rows
+  const periods=filteredPs;
   const pLabels=periods.map(p=>'P'+p);
 
   const compEntries=CI_COMPANIES.map((co,i)=>({co,i})).filter(({co})=>selectedCICompanies.has(co));
@@ -1377,7 +1379,8 @@ function renderCIShare(){
 
 // ── PRICING & COST ENGINE ─────────────────────────────────
 function renderPricing(){
-  const periods=SIM_PERIODS;
+  const periods=SIM_PERIODS.filter(p=>p>=pMin&&p<=pMax);
+  if(!periods.length) return;
   const qs=periods.map(p=>'P'+p);
   const lastP=periods[periods.length-1];
   const sd=SIM_DATA[lastP];
@@ -1502,9 +1505,10 @@ function setPricingMarket(m){
 
 function renderPricingTrend(){
   const prod='p'+pricingProduct;
-  const qs=SIM_PERIODS.map(p=>'P'+p);
-  const ourPriceSeries=SIM_PERIODS.map(p=>SIM_DATA[p]?.our_price[prod][pricingMarket]||null);
-  const compAvgSeries=SIM_PERIODS.map(p=>{
+  const filteredPs=SIM_PERIODS.filter(p=>p>=pMin&&p<=pMax);
+  const qs=filteredPs.map(p=>'P'+p);
+  const ourPriceSeries=filteredPs.map(p=>SIM_DATA[p]?.our_price[prod][pricingMarket]||null);
+  const compAvgSeries=filteredPs.map(p=>{
     const vals=(SIM_DATA[p]?.['comp_prices_'+prod]?.[pricingMarket]||[]).slice(1).filter(v=>v>0);
     return vals.length?+(vals.reduce((s,v)=>s+v,0)/vals.length).toFixed(2):null;
   });
@@ -1576,7 +1580,8 @@ function renderPricingTable(){
 
 // ── COMPANY HEALTH ────────────────────────────────────────
 function renderHealth(){
-  const periods=SIM_PERIODS;
+  const periods=SIM_PERIODS.filter(p=>p>=pMin&&p<=pMax);
+  if(!periods.length) return;
   const qs=periods.map(p=>'P'+p);
   const lastP=periods[periods.length-1];
   const sd=SIM_DATA[lastP];
@@ -1725,6 +1730,7 @@ document.querySelectorAll('.tab').forEach(t=>{
     document.querySelectorAll('.tab-pane').forEach(x=>x.classList.remove('active'));
     t.classList.add('active'); activeTab=t.dataset.tab;
     document.getElementById('tab-'+activeTab).classList.add('active');
+    updateFilterVisibility();
     renderActiveTab();
   });
 });
@@ -1784,6 +1790,32 @@ function setupFilters(){
 }
 
 function applyFilters(){document.getElementById('period-display').textContent=`P${pMin}–P${pMax}`;renderActiveTab();}
+
+// ── FILTER VISIBILITY ─────────────────────────────────────
+const FILTER_RULES={
+  executive:   {countries:true,  products:true,  period:true},
+  performance: {countries:true,  products:true,  period:true},
+  ops:         {countries:false, products:true,  period:true},
+  demand:      {countries:true,  products:false, period:false},
+  competitive: {countries:false, products:false, period:true},
+  pricing:     {countries:false, products:false, period:true},
+  health:      {countries:false, products:false, period:true},
+  cmdcenter:   {countries:false, products:false, period:false},
+};
+
+function updateFilterVisibility(){
+  const rules=FILTER_RULES[activeTab]||{countries:false,products:false,period:false};
+  const countryGroup=document.getElementById('country-filters')?.closest('.filter-group');
+  const productGroup=document.getElementById('product-filters')?.closest('.filter-group');
+  const periodGroup=document.getElementById('pmin')?.closest('.filter-group');
+  if(countryGroup) countryGroup.style.display=rules.countries?'':'none';
+  if(productGroup) productGroup.style.display=rules.products?'':'none';
+  if(periodGroup)  periodGroup.style.display=rules.period?'':'none';
+  const applyBtn=document.querySelector('#filters .btn-primary');
+  if(applyBtn) applyBtn.style.display=(rules.countries||rules.products||rules.period)?'':'none';
+  const filterBar=document.getElementById('filters');
+  if(filterBar) filterBar.style.display=(rules.countries||rules.products||rules.period)?'flex':'none';
+}
 
 function refreshData(){
   const btn=document.getElementById('refresh-btn');
@@ -2116,6 +2148,7 @@ function init(){
     });
   });
 
+  updateFilterVisibility(); // set correct filter visibility for initial tab
   renderExecutive();        // show embedded data immediately
   fetchSheetData();         // fetch financial_model_pivot_report.xlsx
   fetchSimData();           // fetch simulation_out.xlsx for CI/Pricing/Health tabs

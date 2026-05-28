@@ -558,7 +558,7 @@ const bubbleQuadPlugin={
   id:'bubbleQuad',
   afterDatasetsDraw(chart){
     const opts=chart.options.plugins?.bubbleQuad;
-    if(!opts) return;
+    if(!opts?.avgX && !opts?.avgY) return;
     const {ctx,chartArea,scales}=chart;
     if(!scales.x||!scales.y) return;
 

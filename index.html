@@ -1026,31 +1026,31 @@ function renderDemandSim(){
     const b_price=getCoef(s,'rPrice');
     const b_mkt=getCoef(s,'relMarketing');
     const b_lagmkt=getCoef(s,'lagRelMarketing');
-    const lagQualVal=getCoef(s,'lagRelQual');
-    const b_qual=lagQualVal!==null?lagQualVal:getCoef(s,'rQual');
-    const qual_lagged=lagQualVal!==null;
+    const b_qual_lag=getCoef(s,'lagRelQual');
+    const b_qual_curr=getCoef(s,'rQual');
+    const qual_lagged=b_qual_lag!==null;
     const b_green=getCoef(s,'lagRelGreen');
     const r2=getR2(s);
-    return {market,b_price,b_mkt,b_lagmkt,b_qual,qual_lagged,b_green,r2,sheet:s};
+    return {market,b_price,b_mkt,b_lagmkt,b_qual_lag,b_qual_curr,qual_lagged,b_green,r2,sheet:s};
   }).filter(Boolean);
 
   const sorted=[...rows].sort((a,b)=>{
-    const sa=Math.abs(a.b_price||0)+(a.b_mkt||0)+(a.b_lagmkt||0)+(a.b_qual||0)+(a.b_green||0);
-    const sb=Math.abs(b.b_price||0)+(b.b_mkt||0)+(b.b_lagmkt||0)+(b.b_qual||0)+(b.b_green||0);
+    const sa=Math.abs(a.b_price||0)+(a.b_mkt||0)+(a.b_lagmkt||0)+(a.b_qual_lag||0)+(a.b_qual_curr||0)+(a.b_green||0);
+    const sb=Math.abs(b.b_price||0)+(b.b_mkt||0)+(b.b_lagmkt||0)+(b.b_qual_lag||0)+(b.b_qual_curr||0)+(b.b_green||0);
     return sb-sa;
   });
   const markets=sorted.map(r=>r.market);
 
   // Update labels
   document.getElementById('dm-driver-title').textContent='Driver Rankings by Market — Simulation Regression';
-  document.getElementById('dm-driver-subtitle').textContent='Source: Simulation OLS — coefficients show relative market share change per 1-unit change in relative predictor (our value ÷ competitor avg). † Quality is lagged for most markets.';
+  document.getElementById('dm-driver-subtitle').textContent='Source: Simulation OLS — coefficients show relative market share change per 1-unit change in relative predictor (our value ÷ competitor avg). Drivers with p > .05 omitted.';
   document.getElementById('dm-qvg-title').textContent='Quality vs Eco-Friendliness — Simulation';
   document.getElementById('dm-qvg-subtitle').textContent='Bubble size = |price sensitivity| — predictors relative to competitor avg';
   document.getElementById('dm-mkt-subtitle').textContent='Simulation marketing coefficients: immediate (relMarketing) vs lagged (lagRelMarketing)';
 
   // Source banner
-  const qualNote=rows.some(r=>!r.qual_lagged)?'† some markets use current-period quality (rQual) rather than lagged (lagRelQual).':'Quality is lagged relative (lagRelQual) for all visible markets.';
-  document.getElementById('dm-source-banner').innerHTML=`<strong>Simulation Regression (refined_regression_summary)</strong> — OLS predicting our relative market share from relative price, relative marketing (immediate &amp; lagged), lagged relative quality, and lagged relative eco-friendliness. R² values ${rows.map(r=>`${r.market.replace('United ','')} ${(r.r2||0).toFixed(3)}`).join(' | ')}. ${qualNote}`;
+  const qualNote=rows.some(r=>!r.qual_lagged)?'† some markets use current-period quality (rQual); others use lagged (lagRelQual).':'Quality is lagged relative (lagRelQual) for all visible markets.';
+  document.getElementById('dm-source-banner').innerHTML=`<strong>Simulation Regression (refined_regression_summary)</strong> — OLS predicting our relative market share from relative price, relative marketing (immediate &amp; lagged), quality (current &amp; lagged relative), and lagged relative eco-friendliness. R² values ${rows.map(r=>`${r.market.replace('United ','')} ${(r.r2||0).toFixed(3)}`).join(' | ')}. ${qualNote} <em>Note: drivers not statistically significant (p &gt; .05) are omitted from the chart.</em>`;
 
   // R² badges
   document.getElementById('dm-r2-badges').innerHTML=rows.map(r=>`<span class="dm-r2-badge" style="border-color:${DM_MKTCOLOR[r.market]}44"><span style="color:${DM_MKTCOLOR[r.market]}">${r.market.replace('United ','')}</span><strong>R²=${(r.r2||0).toFixed(3)}</strong></span>`).join('');
@@ -1104,11 +1104,12 @@ function renderDriverRankingsSim(sorted, markets){
   const ctx=document.getElementById('dm-driver-chart').getContext('2d');
   const shortMkt=m=>m.replace('United States','US').replace('United Kingdom','UK');
   const driverDefs=[
-    {key:'b_price',   label:'Price Sensitivity (↑rel price = ↓share)', color:'#e86850', signed:true},
-    {key:'b_qual',    label:'Quality (lagged/curr rel)',           color:'#5b9bd5'},
-    {key:'b_mkt',     label:'Marketing (immediate)',              color:'#e7cc54'},
-    {key:'b_lagmkt',  label:'Marketing (lagged)',                 color:'#a89060'},
-    {key:'b_green',   label:'Eco-Friendliness (lagged)',          color:'#69a053'},
+    {key:'b_price',     label:'Price Sensitivity (↑rel price = ↓share)', color:'#e86850', signed:true},
+    {key:'b_qual_curr', label:'Quality (current rel)',                     color:'#7ac7a8'},
+    {key:'b_qual_lag',  label:'Quality (lagged rel)',                      color:'#5b9bd5'},
+    {key:'b_mkt',       label:'Marketing (immediate)',                     color:'#e7cc54'},
+    {key:'b_lagmkt',    label:'Marketing (lagged)',                        color:'#a89060'},
+    {key:'b_green',     label:'Eco-Friendliness (lagged)',                 color:'#69a053'},
   ];
   charts['dm-driver-chart']=new Chart(ctx,{
     type:'bar',
@@ -1188,14 +1189,15 @@ function renderQvGSim(rows){
   const minP=Math.min(...rows.map(r=>Math.abs(r.b_price||0)));
   const maxP=Math.max(...rows.map(r=>Math.abs(r.b_price||0)));
   const rRange=maxP-minP||1;
+  const qualVal=r=>r.b_qual_lag!==null&&r.b_qual_lag!==undefined?r.b_qual_lag:(r.b_qual_curr||0);
   const datasets=rows.map(r=>({
     label:r.market.replace('United ',''),
-    data:[{x:r.b_qual||0, y:r.b_green||0,
+    data:[{x:qualVal(r), y:r.b_green||0,
            r:8+18*((Math.abs(r.b_price||0)-minP)/rRange)}],
     backgroundColor:DM_MKTCOLOR[r.market]+'99',
     borderColor:DM_MKTCOLOR[r.market],borderWidth:2
   }));
-  const avgQ=rows.reduce((s,r)=>s+(r.b_qual||0),0)/rows.length;
+  const avgQ=rows.reduce((s,r)=>s+qualVal(r),0)/rows.length;
   const avgG=rows.reduce((s,r)=>s+(r.b_green||0),0)/rows.length;
   charts['dm-qvg-chart']=new Chart(ctx,{
     type:'bubble',data:{datasets},
@@ -1209,7 +1211,7 @@ function renderQvGSim(rows){
           const r=rows.find(row=>row.market.replace('United ','')===c.dataset.label);
           if(!r) return c.dataset.label;
           const qLabel=r.qual_lagged?'Quality (lag)':'Quality (curr)';
-          return [c.dataset.label,`${qLabel}: ${(r.b_qual||0).toFixed(4)}`,`Eco (lag): ${(r.b_green||0).toFixed(4)}`,`Price sens: ${Math.abs(r.b_price||0).toFixed(4)}`];
+          return [c.dataset.label,`${qLabel}: ${qualVal(r).toFixed(4)}`,`Eco (lag): ${(r.b_green||0).toFixed(4)}`,`Price sens: ${Math.abs(r.b_price||0).toFixed(4)}`];
         }}}
       },
       scales:{
